@@ -117,7 +117,7 @@ func main() {
 					MaxConnections:       settings.MaxConnections(),
 					Seed:                 settings.Seed(),
 					TCP:                  settings.TCP(),
-					DownloadAheadPercent: 3,
+					DownloadAheadPercent: 1,
 					ValidMediaExtensions: controller.MediaExtensions,
 				},
 				torrentsDir,

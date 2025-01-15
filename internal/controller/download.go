@@ -447,4 +447,6 @@ func (c *Download) ClearCache(_ app.ClearCache) {
 		c.eventBus.Publish(app.NewNotifyError("Failed to clear subtitles cache: %s", err))
 		slog.Error("Failed to clear subtitles cache.", "error", err)
 	}
+
+	c.eventBus.Publish(app.NewNotifySuccess("Cache cleared"))
 }
