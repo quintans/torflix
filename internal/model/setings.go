@@ -38,18 +38,18 @@ var Players = []Player{
 }
 
 type Settings struct {
-	torrentPort         int
-	port                int
-	player              Player
-	tcp                 bool
-	maxConnections      int
-	seed                bool
-	languages           []string
-	searchConfig        []byte
-	detailsSearchConfig []byte
-	providers           []string
-	qualities           []string
-	OpenSubtitles       OpenSubtitles
+	torrentPort             int
+	port                    int
+	player                  Player
+	tcp                     bool
+	maxConnections          int
+	seed                    bool
+	languages               []string
+	htmlSearchConfig        []byte
+	htmlDetailsSearchConfig []byte
+	apiSearchConfig         []byte
+	qualities               []string
+	OpenSubtitles           OpenSubtitles
 }
 
 type OpenSubtitles struct {
@@ -58,17 +58,17 @@ type OpenSubtitles struct {
 
 func NewSettings() *Settings {
 	return &Settings{
-		port:                8080,
-		player:              MPV,
-		torrentPort:         50007,
-		seed:                false,
-		tcp:                 true,
-		maxConnections:      200,
-		languages:           []string{"po-PT", "pt-BR", "en"},
-		providers:           providers,
-		qualities:           qualities,
-		searchConfig:        searchConfig,
-		detailsSearchConfig: detailsSearchConfig,
+		port:                    8080,
+		player:                  MPV,
+		torrentPort:             50007,
+		seed:                    false,
+		tcp:                     true,
+		maxConnections:          200,
+		languages:               []string{"po-PT", "pt-BR", "en"},
+		qualities:               qualities,
+		htmlSearchConfig:        htmlSearchConfig,
+		htmlDetailsSearchConfig: detailsScrapeConfig,
+		apiSearchConfig:         apiSearchConfig,
 		OpenSubtitles: OpenSubtitles{
 			Username: "",
 		},
@@ -133,28 +133,28 @@ func (m *Settings) SetLanguages(languages []string) {
 	m.languages = languages
 }
 
-func (m *Settings) SearchConfig() []byte {
-	return m.searchConfig
+func (m *Settings) HtmlSearchConfig() []byte {
+	return m.htmlSearchConfig
 }
 
-func (m *Settings) SetSearchConfig(searchConfig []byte) {
-	m.searchConfig = searchConfig
+func (m *Settings) SetHtmlSearchConfig(searchConfig []byte) {
+	m.htmlSearchConfig = searchConfig
 }
 
-func (m *Settings) DetailsSearchConfig() []byte {
-	return m.detailsSearchConfig
+func (m *Settings) HtmlDetailsSearchConfig() []byte {
+	return m.htmlDetailsSearchConfig
 }
 
-func (m *Settings) SetDetailsSearchConfig(detailsSearchConfig []byte) {
-	m.detailsSearchConfig = detailsSearchConfig
+func (m *Settings) SetHtmlDetailsSearchConfig(detailsSearchConfig []byte) {
+	m.htmlDetailsSearchConfig = detailsSearchConfig
 }
 
-func (m *Settings) Providers() []string {
-	return m.providers
+func (m *Settings) ApiSearchConfig() []byte {
+	return m.apiSearchConfig
 }
 
-func (m *Settings) SetProviders(providers []string) {
-	m.providers = providers
+func (m *Settings) SetApiSearchConfig(apiSearchConfig []byte) {
+	m.apiSearchConfig = apiSearchConfig
 }
 
 func (m *Settings) Qualities() []string {
@@ -175,7 +175,7 @@ func (m *Settings) Hydrate(
 	languages []string,
 	searchConfig []byte,
 	detailsSearchConfig []byte,
-	providers []string,
+	apiSearchConfig []byte,
 	qualities []string,
 	OpenSubtitles OpenSubtitles,
 ) {
@@ -186,17 +186,16 @@ func (m *Settings) Hydrate(
 	m.maxConnections = maxConnections
 	m.seed = seed
 	m.languages = languages
-	m.searchConfig = searchConfig
-	m.detailsSearchConfig = detailsSearchConfig
-	m.providers = providers
+	m.htmlSearchConfig = searchConfig
+	m.htmlDetailsSearchConfig = detailsSearchConfig
+	m.apiSearchConfig = apiSearchConfig
 	m.qualities = qualities
 	m.OpenSubtitles = OpenSubtitles
 }
 
 var (
-	qualities    = []string{"720p", "1080p", "2160p"}
-	providers    = []string{"1337x", "bt4g", "nyaa", "tgx", "tpb"}
-	searchConfig = []byte(`{
+	qualities        = []string{"720p", "1080p", "2160p"}
+	htmlSearchConfig = []byte(`{
 	"tgx": {
 		"name": "TORRENT GALAXY",
 		"url": "https://torrentgalaxy.to/torrents.php?search={{query}}&lang=0&nox=2&sort=seeders&order=desc",
@@ -208,7 +207,7 @@ var (
 			"seeds": "div.tgxtablecell > span[title='Seeders/Leechers'] > font[color='green'] > b"
 		}
 	},
-	"tpb": {
+	"thb": {
 		"queryInPath": true,
 		"name": "THE PIRATE BAY",
 		"url": "https://thehiddenbay.com/search/{{query}}/1/99/0",
@@ -254,7 +253,7 @@ var (
 		}
 	}
 }`)
-	detailsSearchConfig = []byte(`{
+	detailsScrapeConfig = []byte(`{
 	"1337x": {
 		"name": "1337x",
 		"url": "https://1337x.to{{link}}",
@@ -269,6 +268,18 @@ var (
 		"list": "div.card-body",
 		"result": {
 			"magnet":["a:nth-child(3)", "@href", "/magnet:\\?.*/"]
+		}
+	}
+}`)
+
+	apiSearchConfig = []byte(`{
+	"tpb": {
+		"url": "https://apibay.org/q.php?q={{.query}}&cat=",
+		"result": {
+			"name": "name",
+			"hash": "info_hash",
+			"ssize": "size",
+			"seeds": "seeders"
 		}
 	}
 }`)

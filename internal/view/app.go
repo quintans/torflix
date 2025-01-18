@@ -49,11 +49,10 @@ func (v *App) SetController(controller AppController) {
 }
 
 func (v *App) Show(data app.AppData) {
-	v.clear = widget.NewButton("Clear Cache", func() {})
-	v.clear.Importance = widget.WarningImportance
-	v.clear.OnTapped = func() {
+	v.clear = widget.NewButton("Clear Cache", func() {
 		v.controller.ClearCache()
-	}
+	})
+	v.clear.Importance = widget.WarningImportance
 
 	sections := container.NewVBox(
 		widget.NewLabel("Cache"),

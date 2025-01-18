@@ -10,10 +10,13 @@ import (
 
 type Magnet struct {
 	Hash        string
+	InfoHash    string
 	DisplayName string
 	Trackers    []string
 	WebSeeds    []string
 }
+
+const hashPrefix = "urn:btih:"
 
 func Parse(link string) (Magnet, error) {
 	u, err := url.Parse(link)
@@ -37,7 +40,7 @@ func Parse(link string) (Magnet, error) {
 		case "xt":
 			// Extract hash
 			for _, value := range values {
-				if strings.HasPrefix(value, "urn:btih:") {
+				if strings.HasPrefix(value, hashPrefix) {
 					if hash == "" {
 						hash = value
 					} else if hash != value {
@@ -66,6 +69,7 @@ func Parse(link string) (Magnet, error) {
 
 	return Magnet{
 		Hash:        hash,
+		InfoHash:    strings.TrimPrefix(hash, hashPrefix),
 		DisplayName: dn,
 		Trackers:    maps.Keys(trackers),
 		WebSeeds:    maps.Keys(webSeeds),

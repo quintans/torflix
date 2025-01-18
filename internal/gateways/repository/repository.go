@@ -2,11 +2,11 @@ package repository
 
 import (
 	"encoding/json"
-	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
 
+	"github.com/quintans/torflix/internal/lib/files"
 	"github.com/quintans/torflix/internal/model"
 )
 
@@ -28,11 +28,13 @@ func NewDB(cacheDir string) *DB {
 }
 
 type Search struct {
+	LastQuery         string          `json:"lastQuery"`
 	SelectedProviders map[string]bool `json:"selectedProviders"`
 }
 
 func (d *DB) SaveSearch(search *model.Search) error {
 	err := d.write("search.json", Search{
+		LastQuery:         search.Query(),
 		SelectedProviders: search.SelectedProviders(),
 	})
 	if err != nil {
@@ -52,7 +54,7 @@ func (d *DB) LoadSearch() (*model.Search, error) {
 		}
 
 		search := model.NewSearch()
-		search.Hydrate(search.Query(), s.SelectedProviders)
+		search.Hydrate(s.LastQuery, s.SelectedProviders)
 
 		d.search = search
 	}
@@ -69,34 +71,34 @@ func (d *DB) LoadDownload() *model.Download {
 }
 
 type Settings struct {
-	TorrentPort         int                 `json:"torrentPort"`
-	Port                int                 `json:"port"`
-	Player              string              `json:"player"`
-	Tcp                 bool                `json:"tcp"`
-	MaxConnections      int                 `json:"maxConnections"`
-	Seed                bool                `json:"seed"`
-	Languages           []string            `json:"languages"`
-	SearchConfig        json.RawMessage     `json:"searchConfig"`
-	DetailsSearchConfig json.RawMessage     `json:"detailsSearchConfig"`
-	Providers           []string            `json:"providers"`
-	Qualities           []string            `json:"qualities"`
-	OpenSubtitles       model.OpenSubtitles `json:"openSubtitles"`
+	TorrentPort             int                 `json:"torrentPort"`
+	Port                    int                 `json:"port"`
+	Player                  string              `json:"player"`
+	Tcp                     bool                `json:"tcp"`
+	MaxConnections          int                 `json:"maxConnections"`
+	Seed                    bool                `json:"seed"`
+	Languages               []string            `json:"languages"`
+	HtmlSearchConfig        json.RawMessage     `json:"htmlSearchConfig"`
+	HtmlDetailsSearchConfig json.RawMessage     `json:"htmlDetailsSearchConfig"`
+	ApiSearchConfig         json.RawMessage     `json:"apiSearchConfig"`
+	Qualities               []string            `json:"qualities"`
+	OpenSubtitles           model.OpenSubtitles `json:"openSubtitles"`
 }
 
 func (d *DB) SaveSettings(settings *model.Settings) error {
 	err := d.write("settings.json", Settings{
-		TorrentPort:         settings.TorrentPort(),
-		Port:                settings.Port(),
-		Player:              settings.Player().String(),
-		Tcp:                 settings.TCP(),
-		MaxConnections:      settings.MaxConnections(),
-		Seed:                settings.Seed(),
-		Languages:           settings.Languages(),
-		SearchConfig:        settings.SearchConfig(),
-		DetailsSearchConfig: settings.DetailsSearchConfig(),
-		Providers:           settings.Providers(),
-		Qualities:           settings.Qualities(),
-		OpenSubtitles:       settings.OpenSubtitles,
+		TorrentPort:             settings.TorrentPort(),
+		Port:                    settings.Port(),
+		Player:                  settings.Player().String(),
+		Tcp:                     settings.TCP(),
+		MaxConnections:          settings.MaxConnections(),
+		Seed:                    settings.Seed(),
+		Languages:               settings.Languages(),
+		HtmlSearchConfig:        settings.HtmlSearchConfig(),
+		HtmlDetailsSearchConfig: settings.HtmlDetailsSearchConfig(),
+		ApiSearchConfig:         settings.ApiSearchConfig(),
+		Qualities:               settings.Qualities(),
+		OpenSubtitles:           settings.OpenSubtitles,
 	})
 	if err != nil {
 		return fmt.Errorf("saving settings: %w", err)
@@ -129,9 +131,9 @@ func (d *DB) LoadSettings() (*model.Settings, error) {
 			settings.MaxConnections,
 			settings.Seed,
 			settings.Languages,
-			settings.SearchConfig,
-			settings.DetailsSearchConfig,
-			settings.Providers,
+			settings.HtmlSearchConfig,
+			settings.HtmlDetailsSearchConfig,
+			settings.ApiSearchConfig,
 			settings.Qualities,
 			settings.OpenSubtitles,
 		)
@@ -157,8 +159,7 @@ func (d *DB) write(file string, data any) error {
 }
 
 func (d *DB) Exists(file string) bool {
-	_, err := os.Stat(filepath.Join(d.dir, file))
-	return !errors.Is(err, os.ErrNotExist)
+	return files.Exists(filepath.Join(d.dir, file))
 }
 
 func (d *DB) read(file string, data any) error {

@@ -25,21 +25,33 @@ type SearchView interface {
 }
 
 type Search struct {
-	view           SearchView
-	nav            app.Navigator
-	repo           Repository
-	searchScraper  app.Scraper
-	detailsScraper app.Scraper
-	eventBus       app.EventBus
-	providers      []string
+	view       SearchView
+	nav        app.Navigator
+	repo       Repository
+	extractors []app.Extractor
+	eventBus   app.EventBus
+	providers  []string
 }
 
 func NewSearch(
 	view SearchView, nav app.Navigator, repo Repository,
-	searchScraper app.Scraper, detailsScraper app.Scraper,
-	providers []string,
+	extractors []app.Extractor,
 	eventBus app.EventBus,
 ) (Search, error) {
+	slugSet := map[string]struct{}{}
+	for _, xtr := range extractors {
+		for _, slug := range xtr.Slugs() {
+			slugSet[slug] = struct{}{}
+		}
+	}
+
+	providers := make([]string, 0, len(slugSet))
+	for k := range slugSet {
+		providers = append(providers, k)
+	}
+
+	slices.Sort(providers)
+
 	model, err := repo.LoadSearch()
 	if err != nil {
 		return Search{}, fmt.Errorf("loading search: %w", err)
@@ -58,13 +70,12 @@ func NewSearch(
 	}
 
 	return Search{
-		view:           view,
-		nav:            nav,
-		repo:           repo,
-		searchScraper:  searchScraper,
-		detailsScraper: detailsScraper,
-		eventBus:       eventBus,
-		providers:      providers,
+		view:       view,
+		nav:        nav,
+		repo:       repo,
+		extractors: extractors,
+		eventBus:   eventBus,
+		providers:  providers,
 	}, nil
 }
 
@@ -114,6 +125,10 @@ func (c Search) Search(query string, selectedProviders []string) ([]components.M
 			return nil, fmt.Errorf("parsing magnet: %w", err)
 		}
 		dn := mag.DisplayName
+		if dn == "" {
+			c.eventBus.Publish(app.NewNotifyError("When using a magnet link, display name (dn) is required: %s", query))
+			return nil, fmt.Errorf("when using a magnet link, display name (dn) is required: %s", query)
+		}
 		c.Download(cleanTorrentName(dn), query)
 		return nil, nil
 	}
@@ -133,40 +148,33 @@ func (c Search) Search(query string, selectedProviders []string) ([]components.M
 	safeRes := safe.New([]Result{})
 	wg := sync.WaitGroup{}
 	for _, slug := range selectedProviders {
-		wg.Add(1)
-		go func(slug string) {
-			defer wg.Done()
-
-			res, err := c.searchScraper.ScrapeQuery(slug, query)
-			if err != nil {
-				c.eventBus.Publish(app.NewNotifyError("Failed scraping: %s", err))
-				slog.Error("Failed scraping", "error", err)
-				return
+		for _, xtr := range c.extractors {
+			if !xtr.Accept(slug) {
+				continue
 			}
 
-			// retrieve magnet if follow link is set
-			for k, r := range res {
-				if r.Follow != "" {
-					magnet, err := c.follow(slug, r.Follow)
-					if err != nil {
-						c.eventBus.Publish(app.NewNotifyWarn("Failed following: %s", err))
-						slog.Error("Failed following", "error", err)
-						continue
-					}
-					res[k].Magnet = magnet
+			wg.Add(1)
+			go func(slug string) {
+				defer wg.Done()
+
+				res, err := xtr.Extract(slug, query)
+				if err != nil {
+					c.eventBus.Publish(app.NewNotifyError("Failed scraping: %s", err))
+					slog.Error("Failed scraping", "error", err)
+					return
 				}
-			}
 
-			r, err := c.transformToMyResult(slug, res, qualities)
-			if err != nil {
-				c.eventBus.Publish(app.NewNotifyError("Failed converting seeds (slug=%s): %s", slug, err))
-				slog.Error("Failed converting seeds.", "slug", slug, "error", err)
-				return
-			}
-			safeRes.Update(func(v []Result) []Result {
-				return append(v, r...)
-			})
-		}(slug)
+				r, err := c.transformToMyResult(slug, res, qualities)
+				if err != nil {
+					c.eventBus.Publish(app.NewNotifyError("Failed converting seeds (slug=%s): %s", slug, err))
+					slog.Error("Failed converting seeds.", "slug", slug, "error", err)
+					return
+				}
+				safeRes.Update(func(v []Result) []Result {
+					return append(v, r...)
+				})
+			}(slug)
+		}
 	}
 	wg.Wait()
 
@@ -209,27 +217,6 @@ func (c Search) Search(query string, selectedProviders []string) ([]components.M
 	return items, nil
 }
 
-func (c Search) follow(provider, link string) (string, error) {
-	if link == "" {
-		return "", fmt.Errorf("follow link not set")
-	}
-
-	results, err := c.detailsScraper.ScrapeLink(provider, link)
-	if err != nil {
-		return "", fmt.Errorf("failed to scrape follow link (%s): %w", link, err)
-	}
-
-	if len(results) == 0 {
-		return "", fmt.Errorf("no results found for follow link")
-	}
-
-	if results[0].Magnet == "" {
-		return "", fmt.Errorf("no magnet link found for follow link")
-	}
-
-	return results[0].Magnet, nil
-}
-
 var reHash = regexp.MustCompile(`urn:btih:([a-fA-F0-9]+)`)
 
 func (c Search) transformToMyResult(slug string, r []extractor.Result, qualities []string) ([]Result, error) {
@@ -253,7 +240,6 @@ func (c Search) transformToMyResult(slug string, r []extractor.Result, qualities
 			Magnet:   r.Magnet,
 			Size:     r.Size,
 			Seeds:    seeds,
-			Follow:   r.Follow,
 			Hash:     hash,
 		}
 

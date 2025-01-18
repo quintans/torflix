@@ -11,15 +11,13 @@ import (
 	"time"
 
 	"github.com/quintans/torflix/internal/lib/extractor"
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
-func TestExtractor(t *testing.T) {
+func TestHtmlExtractor(t *testing.T) {
 	tests := []struct {
 		name    string
 		results []extractor.Result
-		magnet  string
 	}{
 		{
 			name: "tgx",
@@ -89,68 +87,56 @@ func TestExtractor(t *testing.T) {
 			results: []extractor.Result{
 				{
 					Name:   "Lioness-2023-S02E08-1080p-x265-ELiTE",
-					Magnet: "",
+					Magnet: "magnet:?xt=urn:btih:5DC47BE41CC1277A7F0A4201FBF1A949B542E21B",
 					Size:   "1.3 GB",
 					Seeds:  "479",
-					Follow: "/torrent/6284142/Lioness-2023-S02E08-1080p-x265-ELiTE/",
 				},
 				{
 					Name:   "Special-Ops-Lioness-S02E08-La-bussola-punta-verso-casa-ITA-ENG-2160p-AMZN-WEB-DL-DDP2-0-H-265-MeM-GP-mkv",
-					Magnet: "",
+					Magnet: "magnet:?xt=urn:btih:5DC47BE41CC1277A7F0A4201FBF1A949B542E21B",
 					Size:   "5.6 GB",
 					Seeds:  "119",
-					Follow: "/torrent/6299111/Special-Ops-Lioness-S02E08-La-bussola-punta-verso-casa-ITA-ENG-2160p-AMZN-WEB-DL-DDP2-0-H-265-MeM-GP-mkv/",
 				},
 				{
 					Name:   "Lioness-2023-S02E08-480p-x264-RUBiK",
-					Magnet: "",
+					Magnet: "magnet:?xt=urn:btih:5DC47BE41CC1277A7F0A4201FBF1A949B542E21B",
 					Size:   "519.2 MB",
 					Seeds:  "123",
-					Follow: "/torrent/6284120/Lioness-2023-S02E08-480p-x264-RUBiK/",
 				},
 				{
 					Name:   "Operazione-Speciale-Lioness-S02E08-La-Bussola-Punta-Verso-Casa-1080p-AMZN-WEB-DL-DDP2-0-H264-gattopollo-mkv",
-					Magnet: "",
+					Magnet: "magnet:?xt=urn:btih:5DC47BE41CC1277A7F0A4201FBF1A949B542E21B",
 					Size:   "3.5 GB",
 					Seeds:  "86",
-					Follow: "/torrent/6299110/Operazione-Speciale-Lioness-S02E08-La-Bussola-Punta-Verso-Casa-1080p-AMZN-WEB-DL-DDP2-0-H264-gattopollo-mkv/",
 				},
 				{
 					Name:   "Lioness-2023-S02E08-720p-x265-TiPEX",
-					Magnet: "",
+					Magnet: "magnet:?xt=urn:btih:5DC47BE41CC1277A7F0A4201FBF1A949B542E21B",
 					Size:   "727.1 MB",
 					Seeds:  "74",
-					Follow: "/torrent/6284131/Lioness-2023-S02E08-720p-x265-TiPEX/",
 				},
 			},
-			magnet: "magnet:?xt=urn:btih:5DC47BE41CC1277A7F0A4201FBF1A949B542E21B",
 		},
 		{
 			name: "bt4g",
 			results: []extractor.Result{
 				{
 					Name:   "Lioness (2023) Season 2 S02 (2160p AMZN WEB-DL x265 HEVC 10bit DDP 5.1 Vyndros)",
-					Magnet: "",
+					Magnet: "magnet:?xt.1=urn:btih:80bd6bbd5703e293183350e4cdf9a8638a61f24a&dn=Lioness%20%282023%29%20Season%202%20S02%20%282160p%20AMZN%20WEB-DL%20x265%20HEVC%2010bit%20DDP%205.1%20Vyndros%29",
 					Size:   "25.14GB",
 					Seeds:  "129",
-					Follow: "/magnet/NuJ2HGbSoUIjXWexVdcmfB2EM0fZg6AvD",
 				},
 				{
 					Name:   "Lioness.S02.2160p.PMTP.WEB-DL.DDP5.1.H.265.DUAL-PiA",
-					Magnet: "",
+					Magnet: "magnet:?xt.1=urn:btih:80bd6bbd5703e293183350e4cdf9a8638a61f24a&dn=Lioness%20%282023%29%20Season%202%20S02%20%282160p%20AMZN%20WEB-DL%20x265%20HEVC%2010bit%20DDP%205.1%20Vyndros%29",
 					Size:   "26.09GB",
 					Seeds:  "0",
-					Follow: "/magnet/cNUzsFlNMdrWCw3GjBejNoS3ffoYoaKeN",
 				},
 			},
-			magnet: "magnet:?xt.1=urn:btih:80bd6bbd5703e293183350e4cdf9a8638a61f24a&dn=Lioness%20%282023%29%20Season%202%20S02%20%282160p%20AMZN%20WEB-DL%20x265%20HEVC%2010bit%20DDP%205.1%20Vyndros%29",
 		},
 	}
 
-	searchScraper, err := extractor.NewScraper(searchConfig)
-	require.NoError(t, err)
-
-	detailScraper, err := extractor.NewScraper(detailsSearchConfig)
+	searchScraper, err := extractor.NewScraper(searchConfig, detailsSearchConfig)
 	require.NoError(t, err)
 
 	for _, tt := range tests {
@@ -188,7 +174,7 @@ func TestExtractor(t *testing.T) {
 				}
 			}()
 
-			results, err := searchScraper.ScrapeQuery(tt.name, "something with spaces")
+			results, err := searchScraper.Extract(tt.name, "something with spaces")
 			require.NoError(t, err)
 
 			for i := range results {
@@ -196,13 +182,6 @@ func TestExtractor(t *testing.T) {
 			}
 
 			require.Equal(t, tt.results, results)
-
-			if tt.magnet != "" {
-				details, err := detailScraper.ScrapeLink(tt.name, results[0].Follow)
-				require.NoError(t, err)
-				require.NotEmpty(t, details)
-				assert.Equal(t, tt.magnet, details[0].Magnet)
-			}
 		})
 	}
 }

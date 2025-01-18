@@ -96,9 +96,10 @@ type DownloadResponse struct {
 	Filename string `json:"file_name"`
 }
 
-type Scraper interface {
-	ScrapeQuery(slug string, query string) ([]extractor.Result, error)
-	ScrapeLink(slug string, link string) ([]extractor.Result, error)
+type Extractor interface {
+	Slugs() []string
+	Accept(slug string) bool
+	Extract(slug string, query string) ([]extractor.Result, error)
 }
 
 type Secrets interface {

@@ -3,3 +3,5 @@ builds
 .vscode
 ./dist
 .DS_Store
+
+cmd/test

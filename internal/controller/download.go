@@ -37,6 +37,7 @@ type Download struct {
 	torCliFact             TorrentClientFactory
 	videoPlayer            app.VideoPlayer
 	subtitlesClientFactory OpenSubtitlesClientFactory
+	mediaDir               string
 	torrentsDir            string
 	subtitlesRootDir       string
 	subtitlesDir           string
@@ -56,6 +57,7 @@ func NewDownload(
 	videoPlayer app.VideoPlayer,
 	torCliFact TorrentClientFactory,
 	subtitlesClientFactory OpenSubtitlesClientFactory,
+	mediaDir string,
 	torrentsDir string,
 	subtitlesDir string,
 	eventBus app.EventBus,
@@ -71,6 +73,7 @@ func NewDownload(
 		torCliFact:             torCliFact,
 		videoPlayer:            videoPlayer,
 		subtitlesClientFactory: subtitlesClientFactory,
+		mediaDir:               mediaDir,
 		torrentsDir:            torrentsDir,
 		subtitlesRootDir:       subtitlesDir,
 		eventBus:               eventBus,
@@ -437,7 +440,12 @@ func parseInt(input string) int {
 }
 
 func (c *Download) ClearCache(_ app.ClearCache) {
-	err := os.RemoveAll(c.torrentsDir)
+	err := os.RemoveAll(c.mediaDir)
+	if err != nil {
+		c.eventBus.Publish(app.NewNotifyError("Failed to clear media cache: %s", err))
+		slog.Error("Failed to clear media cache.", "error", err)
+	}
+	err = os.RemoveAll(c.torrentsDir)
 	if err != nil {
 		c.eventBus.Publish(app.NewNotifyError("Failed to clear torrent cache: %s", err))
 		slog.Error("Failed to clear torrent cache.", "error", err)
