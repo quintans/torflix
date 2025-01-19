@@ -3,6 +3,7 @@ package extractor
 import (
 	"encoding/json"
 	"fmt"
+	"log/slog"
 	"net/http"
 	"net/url"
 	"slices"
@@ -117,7 +118,8 @@ func (s *Scraper) Extract(slug string, query string) ([]Result, error) {
 		if r.Follow != "" {
 			magnet, err := s.follow(slug, r.Follow)
 			if err != nil {
-				return nil, fmt.Errorf("failed to follow link: %w", err)
+				slog.Warn("Failed to follow link", "slug", slug, "link", r.Follow, "error", err)
+				continue
 			}
 			htmlRes[k].Magnet = magnet
 		}
@@ -125,6 +127,10 @@ func (s *Scraper) Extract(slug string, query string) ([]Result, error) {
 
 	res := make([]Result, 0, len(htmlRes))
 	for _, r := range htmlRes {
+		if r.Magnet == "" {
+			continue
+		}
+
 		res = append(res, Result{
 			Name:   r.Name,
 			Magnet: r.Magnet,
@@ -143,7 +149,7 @@ func (s *Scraper) follow(provider, link string) (string, error) {
 
 	results, err := s.scrapeLink(provider, link)
 	if err != nil {
-		return "", fmt.Errorf("failed to scrape follow link (%s): %w", link, err)
+		return "", fmt.Errorf("failed to scrape follow link: %w", err)
 	}
 
 	if len(results) == 0 {
