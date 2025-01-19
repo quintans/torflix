@@ -395,12 +395,12 @@ func mergeMagnetLinks(links []string) (string, string, error) {
 
 func cleanTorrentName(torrentName string) string {
 	// Pattern to identify and retain special markers (Season/Episode info)
-	importantPattern := regexp.MustCompile(`(?i)\b(S\d{2}E\d{2}|Season \d+)\b`)
+	seasonEpisodePattern := regexp.MustCompile(`(?i)\b(S\d{2}(E\d{2})?|Season \d+)\b`)
 
 	// Find the first occurrence of the pattern
-	loc := importantPattern.FindStringIndex(torrentName)
-
+	loc := seasonEpisodePattern.FindStringIndex(torrentName)
 	if loc != nil {
+		fmt.Println("===> found importatant:", torrentName[loc[0]:loc[1]])
 		// Keep everything up to and including the matched pattern
 		torrentName = torrentName[:loc[1]]
 	}
@@ -418,7 +418,10 @@ func cleanTorrentName(torrentName string) string {
 
 	for _, pattern := range patterns {
 		re := regexp.MustCompile(pattern)
-		torrentName = re.ReplaceAllString(torrentName, "")
+		loc := re.FindStringIndex(torrentName)
+		if loc != nil {
+			torrentName = torrentName[:loc[0]]
+		}
 	}
 
 	// Replace dots and underscores with spaces

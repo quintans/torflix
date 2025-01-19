@@ -406,7 +406,10 @@ func extractSeasonEpisode(name string, clean bool) (string, int, int) {
 				episode = parseInt(matches[3]) // Extract episode as an integer
 			}
 			if clean {
-				name = re.ReplaceAllString(name, "")
+				loc := re.FindStringIndex(name)
+				if loc != nil {
+					name = name[:loc[0]] // inclusive truncate on pattern math
+				}
 			}
 			break
 		}
@@ -420,7 +423,10 @@ func extractSeasonEpisode(name string, clean bool) (string, int, int) {
 
 		for _, pattern := range patternsToRemove {
 			re := regexp.MustCompile(pattern)
-			name = re.ReplaceAllString(name, "")
+			loc := re.FindStringIndex(name)
+			if loc != nil {
+				name = name[:loc[0]] // inclusive truncate on pattern math
+			}
 		}
 	}
 

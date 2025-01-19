@@ -3,6 +3,7 @@ package opensubtitles
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -10,6 +11,7 @@ import (
 	"slices"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/quintans/torflix/internal/app"
 )
@@ -95,6 +97,20 @@ func (o *OpenSubtitles) Login() (string, error) {
 
 // logout invalidates the access token
 func (o *OpenSubtitles) Logout(token string) error {
+	for i := 0; i < 3; i++ {
+		ok, err := o.logout(token)
+		if err != nil {
+			return err
+		}
+		if ok {
+			return nil
+		}
+		time.Sleep(1 * time.Second)
+	}
+	return errors.New("failed to logout after 3 attempts")
+}
+
+func (o *OpenSubtitles) logout(token string) (bool, error) {
 	url := fmt.Sprintf("%s/logout", BaseURL)
 
 	req, _ := http.NewRequest("DELETE", url, nil)
@@ -107,17 +123,18 @@ func (o *OpenSubtitles) Logout(token string) error {
 	client := &http.Client{}
 	resp, err := client.Do(req)
 	if err != nil {
-		return fmt.Errorf("failed to logout, %w", err)
+		return false, fmt.Errorf("failed to logout, %w", err)
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("failed to logout, status code: %d", resp.StatusCode)
+		if resp.StatusCode == http.StatusTooManyRequests {
+			return false, nil
+		}
+		return false, fmt.Errorf("failed to logout, status code: %d", resp.StatusCode)
 	}
 
-	// Optionally, you could invalidate the token in your application
-	// by deleting or clearing it if needed.
-	return nil
+	return true, nil
 }
 
 // Search searches for subtitles in specified languages for a given query
