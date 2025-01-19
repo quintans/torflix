@@ -14,6 +14,8 @@ import (
 
 	"github.com/anacrolix/torrent"
 	"github.com/quintans/torflix/internal/app"
+	"github.com/quintans/torflix/internal/lib/files"
+	"github.com/quintans/torflix/internal/lib/magnet"
 )
 
 var isHTTP = regexp.MustCompile(`^https?:\/\/`)
@@ -41,11 +43,22 @@ type ClientConfig struct {
 
 // NewTorrentClient creates a new torrent client based on a magnet or a torrent file.
 // If the torrent file is on http, we try downloading it.
-func NewTorrentClient(cfg ClientConfig, torrentDir string, torrentPath string) (*TorrentClient, error) {
+func NewTorrentClient(cfg ClientConfig, torrentDir, mediaDir string, resource string) (*TorrentClient, error) {
+	torrentFile, err := checkIfTorrentExists(torrentDir, resource)
+	if err != nil {
+		return nil, fmt.Errorf("parsing magnet or torrent: %w", err)
+	}
+	var torrentPath string
+	if torrentFile != "" {
+		torrentPath = torrentFile
+	} else {
+		torrentPath = resource
+	}
+
 	var t *torrent.Torrent
 	var c *torrent.Client
 
-	err := os.MkdirAll(torrentDir, os.ModePerm)
+	err = os.MkdirAll(mediaDir, os.ModePerm)
 	if err != nil {
 		return nil, fmt.Errorf("creating data directory: %w", err)
 	}
@@ -55,12 +68,12 @@ func NewTorrentClient(cfg ClientConfig, torrentDir string, torrentPath string) (
 	}
 
 	client := &TorrentClient{
-		TorrentDir: torrentDir,
+		TorrentDir: mediaDir,
 		Config:     cfg,
 	}
 
 	torrentConfig := torrent.NewDefaultClientConfig()
-	torrentConfig.DataDir = torrentDir
+	torrentConfig.DataDir = mediaDir
 	torrentConfig.Seed = !cfg.Seed
 	torrentConfig.DisableTCP = !cfg.TCP
 	torrentConfig.ListenPort = cfg.TorrentPort
@@ -85,7 +98,7 @@ func NewTorrentClient(cfg ClientConfig, torrentDir string, torrentPath string) (
 
 		// If it's online, we try downloading the file.
 		if isHTTP.MatchString(torrentPath) {
-			if torrentPath, err = downloadFile(torrentDir, torrentPath); err != nil {
+			if torrentPath, err = downloadFile(mediaDir, torrentPath); err != nil {
 				return client, fmt.Errorf("downloading torrent file: %w", err)
 			}
 		}
@@ -100,7 +113,56 @@ func NewTorrentClient(cfg ClientConfig, torrentDir string, torrentPath string) (
 
 	<-t.GotInfo()
 
+	if torrentFile == "" {
+		err = saveTorrent(torrentDir, t)
+		if err != nil {
+			return nil, fmt.Errorf("saving torrent: %w", err)
+		}
+	}
+
 	return client, nil
+}
+
+func checkIfTorrentExists(torrentFileDir, torrentPath string) (string, error) {
+	m, err := magnet.Parse(torrentPath)
+	if err != nil {
+		return "", fmt.Errorf("parsing magnet: %w", err)
+	}
+
+	if m.InfoHash != "" {
+		filename := fmt.Sprintf("%s.torrent", m.InfoHash)
+		file := filepath.Join(torrentFileDir, filename)
+		if files.Exists(file) {
+			return file, nil
+		}
+	}
+
+	return "", nil
+}
+
+func saveTorrent(torrentFileDir string, t *torrent.Torrent) error {
+	err := os.MkdirAll(torrentFileDir, os.ModePerm)
+	if err != nil {
+		return fmt.Errorf("creating torrent directory: %w", err)
+	}
+
+	hash := t.InfoHash().HexString()
+	filename := fmt.Sprintf("%s.torrent", hash)
+	file := filepath.Join(torrentFileDir, filename)
+
+	f, err := os.Create(file)
+	if err != nil {
+		return fmt.Errorf("creating torrent file: %w", err)
+	}
+	defer f.Close()
+
+	mi := t.Metainfo()
+	err = mi.Write(f)
+	if err != nil {
+		return fmt.Errorf("saving torrent: %w", err)
+	}
+
+	return nil
 }
 
 func (c *TorrentClient) Play(file *torrent.File) {

@@ -8,7 +8,6 @@ import (
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/app"
-	"github.com/anacrolix/torrent"
 	gapp "github.com/quintans/torflix/internal/app"
 	"github.com/quintans/torflix/internal/controller"
 	"github.com/quintans/torflix/internal/gateways/eventbus"
@@ -19,8 +18,6 @@ import (
 	"github.com/quintans/torflix/internal/gateways/tor"
 	"github.com/quintans/torflix/internal/lib/bus"
 	"github.com/quintans/torflix/internal/lib/extractor"
-	"github.com/quintans/torflix/internal/lib/files"
-	"github.com/quintans/torflix/internal/lib/magnet"
 	"github.com/quintans/torflix/internal/lib/navigator"
 	"github.com/quintans/torflix/internal/model"
 	"github.com/quintans/torflix/internal/view"
@@ -160,18 +157,7 @@ func main() {
 }
 
 func torrentClientFactory(db *repository.DB, mediaDir, torrentFileDir string) func(torrentPath string) (gapp.TorrentClient, error) {
-	return func(magnetLink string) (gapp.TorrentClient, error) {
-		torrentPath, err := checkIfTorrentExists(torrentFileDir, magnetLink)
-		if err != nil {
-			return nil, fmt.Errorf("parsing magnet or torrent: %w", err)
-		}
-		var link string
-		if torrentPath != "" {
-			link = torrentPath
-		} else {
-			link = magnetLink
-		}
-
+	return func(link string) (gapp.TorrentClient, error) {
 		settings, err := db.LoadSettings()
 		if err != nil {
 			return nil, fmt.Errorf("torrent client factory loading settings: %w", err)
@@ -185,6 +171,7 @@ func torrentClientFactory(db *repository.DB, mediaDir, torrentFileDir string) fu
 				DownloadAheadPercent: 1,
 				ValidMediaExtensions: controller.MediaExtensions,
 			},
+			torrentFileDir,
 			mediaDir,
 			link,
 		)
@@ -192,55 +179,6 @@ func torrentClientFactory(db *repository.DB, mediaDir, torrentFileDir string) fu
 			return nil, fmt.Errorf("creating torrent client: %w", err)
 		}
 
-		if torrentPath == "" {
-			err = saveTorrent(torrentFileDir, tCli.Torrent)
-			if err != nil {
-				return nil, fmt.Errorf("saving torrent: %w", err)
-			}
-		}
-
 		return tCli, nil
 	}
-}
-
-func checkIfTorrentExists(torrentFileDir, torrentPath string) (string, error) {
-	m, err := magnet.Parse(torrentPath)
-	if err != nil {
-		return "", fmt.Errorf("parsing magnet: %w", err)
-	}
-
-	if m.InfoHash != "" {
-		filename := fmt.Sprintf("%s.torrent", m.InfoHash)
-		file := filepath.Join(torrentFileDir, filename)
-		if files.Exists(file) {
-			return file, nil
-		}
-	}
-
-	return "", nil
-}
-
-func saveTorrent(torrentFileDir string, t *torrent.Torrent) error {
-	err := os.MkdirAll(torrentFileDir, os.ModePerm)
-	if err != nil {
-		return fmt.Errorf("creating torrent directory: %w", err)
-	}
-
-	hash := t.InfoHash().HexString()
-	filename := fmt.Sprintf("%s.torrent", hash)
-	file := filepath.Join(torrentFileDir, filename)
-
-	f, err := os.Create(file)
-	if err != nil {
-		return fmt.Errorf("creating torrent file: %w", err)
-	}
-	defer f.Close()
-
-	mi := t.Metainfo()
-	err = mi.Write(f)
-	if err != nil {
-		return fmt.Errorf("saving torrent: %w", err)
-	}
-
-	return nil
 }
