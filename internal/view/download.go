@@ -23,10 +23,11 @@ type Download struct {
 	showViewer ShowViewer
 	controller DownloadController
 
-	stream   *widget.Label
-	progress *widget.Label
-	down     *widget.Label
-	seeders  *widget.Label
+	stream        *widget.Label
+	progress      *widget.Label
+	downloadSpeed *widget.Label
+	uploadSpeed   *widget.Label
+	seeders       *widget.Label
 
 	play *widget.Button
 }
@@ -45,7 +46,8 @@ func (v *Download) Show(torName string, subFile string) {
 	v.stream = widget.NewLabel("")
 	v.stream = widget.NewLabel("")
 	v.progress = widget.NewLabel("")
-	v.down = widget.NewLabel("")
+	v.downloadSpeed = widget.NewLabel("")
+	v.uploadSpeed = widget.NewLabel("")
 	v.seeders = widget.NewLabel("")
 
 	v.play = widget.NewButton("Play", func() {
@@ -75,7 +77,11 @@ func (v *Download) Show(torName string, subFile string) {
 
 	down := canvas.NewText("Download speed", color.White)
 	down.Alignment = fyne.TextAlignTrailing
-	widgets = append(widgets, down, v.down)
+	widgets = append(widgets, down, v.downloadSpeed)
+
+	up := canvas.NewText("Upload speed", color.White)
+	up.Alignment = fyne.TextAlignTrailing
+	widgets = append(widgets, up, v.uploadSpeed)
 
 	seeders := canvas.NewText("Seeders", color.White)
 	seeders.Alignment = fyne.TextAlignTrailing
@@ -105,7 +111,8 @@ func (v *Download) OnEnter() {
 func (v *Download) OnExit() {
 	v.stream = nil
 	v.progress = nil
-	v.down = nil
+	v.downloadSpeed = nil
+	v.uploadSpeed = nil
 	v.seeders = nil
 
 	v.play = nil
@@ -126,10 +133,11 @@ func (c *Download) SetStats(stats app.Stats) {
 	}
 
 	if stats.Done {
-		c.down.SetText("Download complete")
+		c.downloadSpeed.SetText("Download complete")
 	} else {
-		c.down.SetText(humanize.Bytes(uint64(stats.DownloadSpeed)) + "/s")
+		c.downloadSpeed.SetText(humanize.Bytes(uint64(stats.DownloadSpeed)) + "/s")
 	}
+	c.uploadSpeed.SetText(humanize.Bytes(uint64(stats.UploadSpeed)) + "/s")
 	c.seeders.SetText(fmt.Sprintf("%d", stats.Seeders))
 }
 

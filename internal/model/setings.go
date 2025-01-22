@@ -44,6 +44,7 @@ type Settings struct {
 	tcp                     bool
 	maxConnections          int
 	seed                    bool
+	seedAfterComplete       bool
 	languages               []string
 	htmlSearchConfig        []byte
 	htmlDetailsSearchConfig []byte
@@ -61,7 +62,8 @@ func NewSettings() *Settings {
 		port:                    8080,
 		player:                  MPV,
 		torrentPort:             50007,
-		seed:                    false,
+		seed:                    true,
+		seedAfterComplete:       false,
 		tcp:                     true,
 		maxConnections:          200,
 		languages:               []string{"po-PT", "pt-BR", "en"},
@@ -125,6 +127,14 @@ func (m *Settings) SetSeed(seed bool) {
 	m.seed = seed
 }
 
+func (m *Settings) SeedAfterComplete() bool {
+	return m.seedAfterComplete
+}
+
+func (m *Settings) SetSeedAfterComplete(seedAfterComplete bool) {
+	m.seedAfterComplete = seedAfterComplete
+}
+
 func (m *Settings) Languages() []string {
 	return m.languages
 }
@@ -172,6 +182,7 @@ func (m *Settings) Hydrate(
 	tcp bool,
 	maxConnections int,
 	seed bool,
+	seedAfterComplete bool,
 	languages []string,
 	searchConfig []byte,
 	detailsSearchConfig []byte,
@@ -185,6 +196,7 @@ func (m *Settings) Hydrate(
 	m.tcp = tcp
 	m.maxConnections = maxConnections
 	m.seed = seed
+	m.seedAfterComplete = seedAfterComplete
 	m.languages = languages
 	m.htmlSearchConfig = searchConfig
 	m.htmlDetailsSearchConfig = detailsSearchConfig

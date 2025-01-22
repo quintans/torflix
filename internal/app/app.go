@@ -33,6 +33,7 @@ type AppView interface {
 }
 
 type AppData struct {
+	CacheDir      string
 	OpenSubtitles OpenSubtitles
 }
 
@@ -58,6 +59,7 @@ type Stats struct {
 	Complete         int64
 	Size             int64
 	DownloadSpeed    int64
+	UploadSpeed      int64
 	Seeders          int
 	Done             bool
 }

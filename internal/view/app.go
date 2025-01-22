@@ -57,17 +57,24 @@ func (v *App) Show(data app.AppData) {
 	sections := container.NewVBox(
 		widget.NewLabel("Cache"),
 		canvas.NewLine(color.Gray{128}),
+		container.NewHBox(
+			widget.NewForm(
+				widget.NewFormItem("Directory", widget.NewLabel(data.CacheDir)),
+			),
+			layout.NewSpacer(),
+		),
 		container.NewHBox(v.clear, layout.NewSpacer()),
 		widget.NewSeparator(),
 	)
+
+	sections.Add(widget.NewLabel("OpenSubtitles.com"))
+	sections.Add(canvas.NewLine(color.Gray{128}))
 
 	usernameEntry := widget.NewEntry()
 	usernameEntry.SetText(data.OpenSubtitles.Username)
 	passwordEntry := widget.NewPasswordEntry()
 	passwordEntry.SetText(data.OpenSubtitles.Password)
 
-	sections.Add(widget.NewLabel("OpenSubtitles.com"))
-	sections.Add(canvas.NewLine(color.Gray{128}))
 	sections.Add(container.NewHBox(
 		widget.NewForm(
 			widget.NewFormItem("Username", components.NewMinSizeWrapper(usernameEntry, fyne.NewSize(200, 40))),

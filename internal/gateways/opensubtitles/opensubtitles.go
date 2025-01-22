@@ -3,7 +3,6 @@ package opensubtitles
 import (
 	"bytes"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -11,9 +10,9 @@ import (
 	"slices"
 	"strconv"
 	"strings"
-	"time"
 
 	"github.com/quintans/torflix/internal/app"
+	"github.com/quintans/torflix/internal/lib/retry"
 )
 
 const (
@@ -97,20 +96,12 @@ func (o *OpenSubtitles) Login() (string, error) {
 
 // logout invalidates the access token
 func (o *OpenSubtitles) Logout(token string) error {
-	for i := 0; i < 3; i++ {
-		ok, err := o.logout(token)
-		if err != nil {
-			return err
-		}
-		if ok {
-			return nil
-		}
-		time.Sleep(1 * time.Second)
-	}
-	return errors.New("failed to logout after 3 attempts")
+	return retry.Do(func() error {
+		return o.logout(token)
+	})
 }
 
-func (o *OpenSubtitles) logout(token string) (bool, error) {
+func (o *OpenSubtitles) logout(token string) error {
 	url := fmt.Sprintf("%s/logout", BaseURL)
 
 	req, _ := http.NewRequest("DELETE", url, nil)
@@ -123,22 +114,32 @@ func (o *OpenSubtitles) logout(token string) (bool, error) {
 	client := &http.Client{}
 	resp, err := client.Do(req)
 	if err != nil {
-		return false, fmt.Errorf("failed to logout, %w", err)
+		return fmt.Errorf("failed to logout, %w", err)
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
 		if resp.StatusCode == http.StatusTooManyRequests {
-			return false, nil
+			return fmt.Errorf("too many requests")
 		}
-		return false, fmt.Errorf("failed to logout, status code: %d", resp.StatusCode)
+		return retry.NewPermanentError(fmt.Errorf("failed to logout, status code: %d: %w", resp.StatusCode))
 	}
 
-	return true, nil
+	return nil
 }
 
 // Search searches for subtitles in specified languages for a given query
 func (o *OpenSubtitles) Search(query string, season, episode int, languages []string) ([]app.SubtitleAttributes, error) {
+	var attrs []app.SubtitleAttributes
+	var err error
+	err = retry.Do(func() error {
+		attrs, err = o.search(query, season, episode, languages)
+		return err
+	})
+	return attrs, err
+}
+
+func (o *OpenSubtitles) search(query string, season, episode int, languages []string) ([]app.SubtitleAttributes, error) {
 	type Params struct {
 		Key, Value string
 	}
@@ -188,7 +189,10 @@ func (o *OpenSubtitles) Search(query string, season, episode int, languages []st
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("failed to search subtitles, status code: %d", resp.StatusCode)
+		if resp.StatusCode == http.StatusTooManyRequests {
+			return nil, fmt.Errorf("too many requests")
+		}
+		return nil, retry.NewPermanentError(fmt.Errorf("failed to search subtitles, status code: %d: %w", resp.StatusCode))
 	}
 
 	var searchResp SearchResponse
@@ -219,6 +223,16 @@ func (o *OpenSubtitles) Search(query string, season, episode int, languages []st
 
 // downloadSubtitle retrieves the download link for a given subtitle ID
 func (o *OpenSubtitles) Download(token string, fileID int) (app.DownloadResponse, error) {
+	var res app.DownloadResponse
+	var err error
+	err = retry.Do(func() error {
+		res, err = o.download(token, fileID)
+		return err
+	})
+	return res, err
+}
+
+func (o *OpenSubtitles) download(token string, fileID int) (app.DownloadResponse, error) {
 	url := fmt.Sprintf("%s/download", BaseURL)
 	body := map[string]string{"file_id": strconv.Itoa(fileID)}
 	bodyJSON, _ := json.Marshal(body)
@@ -238,7 +252,10 @@ func (o *OpenSubtitles) Download(token string, fileID int) (app.DownloadResponse
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return app.DownloadResponse{}, fmt.Errorf("downloading subtitle, status code: %d", resp.StatusCode)
+		if resp.StatusCode == http.StatusTooManyRequests {
+			return app.DownloadResponse{}, fmt.Errorf("too many requests")
+		}
+		return app.DownloadResponse{}, retry.NewPermanentError(fmt.Errorf("downloading subtitle, status code: %d: %w", resp.StatusCode))
 	}
 
 	var res app.DownloadResponse

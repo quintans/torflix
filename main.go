@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-	"log/slog"
 	"os"
 	"path/filepath"
 
@@ -28,7 +27,6 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	slog.Info("cache", "dir", path)
 
 	cacheDir := filepath.Join(path, "torflix")
 	err = os.MkdirAll(cacheDir, os.ModePerm)
@@ -137,6 +135,7 @@ func main() {
 		eventBus,
 		db,
 		sec,
+		cacheDir,
 	)
 
 	searchView.SetController(searchCtrl)
@@ -167,6 +166,7 @@ func torrentClientFactory(db *repository.DB, mediaDir, torrentFileDir string) fu
 				TorrentPort:          settings.TorrentPort(),
 				MaxConnections:       settings.MaxConnections(),
 				Seed:                 settings.Seed(),
+				SeedAfterComplete:    settings.SeedAfterComplete(),
 				TCP:                  settings.TCP(),
 				DownloadAheadPercent: 1,
 				ValidMediaExtensions: controller.MediaExtensions,

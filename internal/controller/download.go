@@ -17,6 +17,7 @@ import (
 
 	"github.com/anacrolix/torrent"
 	"github.com/quintans/torflix/internal/app"
+	"github.com/quintans/torflix/internal/lib/retry"
 )
 
 const localhost = "http://localhost:%d/%s"
@@ -233,7 +234,7 @@ func (c *Download) downloadSubtitles(file *torrent.File) (string, error) {
 		}
 
 		subPath := filepath.Join(subsDir, insertLang(k, download.Filename, sub.Language))
-		err = saveSubtitleFile(download.Link, subPath)
+		err = saveSubtitleFileRetry(download.Link, subPath)
 		if err != nil {
 			return "", fmt.Errorf("saving subtitle file: %w", err)
 		}
@@ -247,7 +248,12 @@ func insertLang(index int, filename, language string) string {
 	return fmt.Sprintf("%02d-subtitle.%s%s", index, language, ext)
 }
 
-// saveSubtitleFile downloads the subtitle file from the given URL and saves it locally
+// saveSubtitleFileRetry downloads the subtitle file from the given URL and saves it locally
+func saveSubtitleFileRetry(downloadLink, fileName string) error {
+	return retry.Do(func() error {
+		return saveSubtitleFile(downloadLink, fileName)
+	})
+}
 func saveSubtitleFile(downloadLink, fileName string) error {
 	resp, err := http.Get(downloadLink)
 	if err != nil {
@@ -256,7 +262,10 @@ func saveSubtitleFile(downloadLink, fileName string) error {
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("failed to fetch subtitle file, status code: %d", resp.StatusCode)
+		if resp.StatusCode == http.StatusTooManyRequests {
+			return fmt.Errorf("too many requests")
+		}
+		return retry.NewPermanentError(fmt.Errorf("failed to fetch subtitle file, status code: %d", resp.StatusCode))
 	}
 
 	// Create a file locally to save the subtitle

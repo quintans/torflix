@@ -25,16 +25,19 @@ type TorrentClient struct {
 	Client     *torrent.Client
 	Torrent    *torrent.Torrent
 	Progress   int64
+	Uploaded   int64
 	Size       int64
 	Config     ClientConfig
 	File       *torrent.File
 	TorrentDir string
+	closed     bool
 }
 
 // ClientConfig specifies the behaviour of a client.
 type ClientConfig struct {
 	TorrentPort          int
 	Seed                 bool
+	SeedAfterComplete    bool
 	TCP                  bool
 	MaxConnections       int
 	DownloadAheadPercent int64 // Prioritize first % of the file.
@@ -74,7 +77,8 @@ func NewTorrentClient(cfg ClientConfig, torrentDir, mediaDir string, resource st
 
 	torrentConfig := torrent.NewDefaultClientConfig()
 	torrentConfig.DataDir = mediaDir
-	torrentConfig.Seed = !cfg.Seed
+	torrentConfig.Seed = cfg.Seed
+	torrentConfig.NoUpload = !cfg.Seed
 	torrentConfig.DisableTCP = !cfg.TCP
 	torrentConfig.ListenPort = cfg.TorrentPort
 
@@ -186,8 +190,18 @@ func (c *TorrentClient) PauseTorrent() {
 
 // Close cleans up the connections.
 func (c *TorrentClient) Close() {
+	if c.closed {
+		return
+	}
+
+	c.closed = true
+	c.Torrent.Closed()
 	c.Torrent.Drop()
-	c.Client.Close()
+
+	errs := c.Client.Close()
+	for _, err := range errs {
+		slog.Error("Failed closing torrent client.", "error", err)
+	}
 }
 
 // Render outputs the command line interface for the client.
@@ -203,15 +217,26 @@ func (c *TorrentClient) Stats() app.Stats {
 	tStats := t.Stats()
 	currentProgress := c.File.BytesCompleted()
 	size := c.File.Length()
+
+	// upload
+	bytesWrittenData := tStats.BytesWrittenData
+	currentUpload := (&bytesWrittenData).Int64()
+
 	stats := app.Stats{
 		Complete:      currentProgress,
 		Size:          size,
 		DownloadSpeed: currentProgress - c.Progress,
+		UploadSpeed:   currentUpload - c.Uploaded,
 		Seeders:       tStats.ConnectedSeeders,
 		Done:          currentProgress >= size,
 	}
 
+	if !c.closed && stats.Done && !c.Config.SeedAfterComplete {
+		c.Close()
+	}
+
 	c.Progress = currentProgress
+	c.Uploaded = currentUpload
 	c.Size = size
 
 	stats.ReadyForPlayback = c.ReadyForPlayback()

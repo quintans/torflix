@@ -77,6 +77,7 @@ type Settings struct {
 	Tcp                     bool                `json:"tcp"`
 	MaxConnections          int                 `json:"maxConnections"`
 	Seed                    bool                `json:"seed"`
+	SeedAfterComplete       bool                `json:"seedAfterComplete"`
 	Languages               []string            `json:"languages"`
 	HtmlSearchConfig        json.RawMessage     `json:"htmlSearchConfig"`
 	HtmlDetailsSearchConfig json.RawMessage     `json:"htmlDetailsSearchConfig"`
@@ -130,6 +131,7 @@ func (d *DB) LoadSettings() (*model.Settings, error) {
 			settings.Tcp,
 			settings.MaxConnections,
 			settings.Seed,
+			settings.SeedAfterComplete,
 			settings.Languages,
 			settings.HtmlSearchConfig,
 			settings.HtmlDetailsSearchConfig,

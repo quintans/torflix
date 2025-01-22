@@ -22,6 +22,7 @@ type App struct {
 	eventBus           app.EventBus
 	repo               Repository
 	secrets            app.Secrets
+	cacheDir           string
 }
 
 func NewApp(
@@ -30,6 +31,7 @@ func NewApp(
 	eventBus app.EventBus,
 	repo Repository,
 	secrets app.Secrets,
+	cacheDir string,
 ) *App {
 	return &App{
 		view:     view,
@@ -37,6 +39,7 @@ func NewApp(
 		eventBus: eventBus,
 		repo:     repo,
 		secrets:  secrets,
+		cacheDir: cacheDir,
 	}
 }
 
@@ -53,6 +56,7 @@ func (a *App) OnEnter() {
 	}
 
 	a.view.Show(app.AppData{
+		CacheDir: a.cacheDir,
 		OpenSubtitles: app.OpenSubtitles{
 			Username: settings.OpenSubtitles.Username,
 			Password: password,
