@@ -17,8 +17,7 @@ type MagnetItem struct {
 	Seeds    string
 	Quality  string
 	Magnet   string
-	Hash     string
-	Follow   string
+	Cached   bool
 }
 
 type MagnetListItem struct {
@@ -29,6 +28,7 @@ type MagnetListItem struct {
 	Bytes    *widget.Label
 	Seeds    *widget.Label
 	Quality  *Pill
+	Cached   *Pill
 }
 
 func NewMagnetListItem() *MagnetListItem {
@@ -37,6 +37,7 @@ func NewMagnetListItem() *MagnetListItem {
 		Name:     widget.NewLabel(""),
 		Bytes:    widget.NewLabel(""),
 		Seeds:    widget.NewLabel(""),
+		Cached:   NewPill("Cached"),
 		Quality:  NewPill(""),
 	}
 	li.ExtendBaseWidget(li)
@@ -49,10 +50,26 @@ func (item *MagnetListItem) SetData(data MagnetItem) {
 	item.Seeds.SetText("Seeds: " + data.Seeds)
 	item.Bytes.SetText(data.Size)
 	item.Quality.SetText(data.Quality)
+	if data.Cached {
+		item.Cached.Show()
+	} else {
+		item.Cached.Hide()
+	}
 }
 
 func (item *MagnetListItem) CreateRenderer() fyne.WidgetRenderer {
-	c := container.NewVBox(item.Name, container.NewHBox(item.Quality, item.Seeds, item.Bytes, layout.NewSpacer(), item.Provider))
+	c := container.NewVBox(
+		item.Name,
+		container.NewHBox(
+			item.Quality,
+			item.Seeds,
+			item.Bytes,
+			layout.NewSpacer(),
+			item.Cached,
+			layout.NewSpacer(),
+			item.Provider,
+		),
+	)
 
 	r := canvas.NewRectangle(color.Transparent)
 	r.CornerRadius = 5

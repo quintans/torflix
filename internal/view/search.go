@@ -114,6 +114,7 @@ func (v *Search) Show(searchModel *model.Search, providers []string) {
 	)
 	v.result.OnSelected = func(id widget.ListItemID) {
 		v.result.Hide()
+		v.data[id].Cached = true
 		err := v.controller.Download(originalQuery, v.data[id].Magnet)
 		if err != nil {
 			slog.Error("Failed to download.", "error", err.Error())

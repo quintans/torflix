@@ -106,7 +106,7 @@ func main() {
 	downloadView := view.NewDownload(appView)
 	downloadListView := view.NewDownloadList(appView, eventBus)
 
-	searchCtrl, err := controller.NewSearch(searchView, nav, db, extractors, eventBus)
+	searchCtrl, err := controller.NewSearch(searchView, nav, db, extractors, eventBus, torrentsDir)
 	if err != nil {
 		panic(fmt.Sprintf("creating search controller: %s", err))
 	}

@@ -96,13 +96,6 @@ func (r *customLabelRenderer) updateTexts(width float32) {
 	}
 }
 
-func max(a, b float32) float32 {
-	if a > b {
-		return a
-	}
-	return b
-}
-
 func (r *customLabelRenderer) newText(txt string) *canvas.Text {
 	text := canvas.NewText(txt, r.label.Color)
 	if r.label.TextSize > 0 {

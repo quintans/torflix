@@ -134,7 +134,7 @@ func checkIfTorrentExists(torrentFileDir, torrentPath string) (string, error) {
 	}
 
 	if m.InfoHash != "" {
-		filename := fmt.Sprintf("%s.torrent", m.InfoHash)
+		filename := fmt.Sprintf("%s.torrent", strings.ToUpper(m.InfoHash))
 		file := filepath.Join(torrentFileDir, filename)
 		if files.Exists(file) {
 			return file, nil
@@ -151,7 +151,7 @@ func saveTorrent(torrentFileDir string, t *torrent.Torrent) error {
 	}
 
 	hash := t.InfoHash().HexString()
-	filename := fmt.Sprintf("%s.torrent", hash)
+	filename := fmt.Sprintf("%s.torrent", strings.ToUpper(hash))
 	file := filepath.Join(torrentFileDir, filename)
 
 	f, err := os.Create(file)

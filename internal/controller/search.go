@@ -15,6 +15,7 @@ import (
 	"github.com/quintans/torflix/internal/app"
 	"github.com/quintans/torflix/internal/components"
 	"github.com/quintans/torflix/internal/lib/extractor"
+	"github.com/quintans/torflix/internal/lib/files"
 	"github.com/quintans/torflix/internal/lib/magnet"
 	"github.com/quintans/torflix/internal/lib/safe"
 	"github.com/quintans/torflix/internal/model"
@@ -31,12 +32,14 @@ type Search struct {
 	extractors []app.Extractor
 	eventBus   app.EventBus
 	providers  []string
+	torrentDir string
 }
 
 func NewSearch(
 	view SearchView, nav app.Navigator, repo Repository,
 	extractors []app.Extractor,
 	eventBus app.EventBus,
+	torrentDir string,
 ) (Search, error) {
 	slugSet := map[string]struct{}{}
 	for _, xtr := range extractors {
@@ -76,6 +79,7 @@ func NewSearch(
 		extractors: extractors,
 		eventBus:   eventBus,
 		providers:  providers,
+		torrentDir: torrentDir,
 	}, nil
 }
 
@@ -99,7 +103,6 @@ type Result struct {
 	Size     string
 	Seeds    int
 	Quality  int
-	Follow   string
 	Hash     string
 }
 
@@ -207,7 +210,7 @@ func (c Search) Search(query string, selectedProviders []string) ([]components.M
 			Size:     r.Size,
 			Seeds:    strconv.Itoa(r.Seeds),
 			Magnet:   r.Magnet,
-			Follow:   r.Follow,
+			Cached:   files.Exists(c.torrentDir, strings.ToUpper(r.Hash)+".torrent"),
 		}
 		if r.Quality != 0 {
 			items[i].Quality = qualities[r.Quality-1]
@@ -277,7 +280,7 @@ func (c Search) collapseByHash(results []Result) ([]Result, error) {
 			magnets := make([]string, 0, len(group))
 			for _, r := range group {
 				if r.Magnet == "" {
-					c.eventBus.Publish(app.NewNotifyWarn("Empty magnet link. name=%s, provider=%s, follow=%s", r.Name, r.Provider, r.Follow))
+					c.eventBus.Publish(app.NewNotifyWarn("Empty magnet link. name=%s, provider=%s", r.Name, r.Provider))
 					continue
 				}
 				magnets = append(magnets, r.Magnet)
