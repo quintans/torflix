@@ -147,11 +147,11 @@ func main() {
 	bus.Listen(b, appCtrl.OnNavigation)
 	bus.Listen(b, downloadCtrl.ClearCache)
 	bus.Listen(b, appCtrl.ShowNotification)
+	bus.Listen(b, appCtrl.Loading)
 
 	appCtrl.OnEnter()
 	nav.Go(controller.SearchNavigation)
 
-	// w.FullScreen()
 	w.ShowAndRun()
 }
 

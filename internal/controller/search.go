@@ -11,6 +11,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/quintans/torflix/internal/app"
 	"github.com/quintans/torflix/internal/components"
@@ -18,6 +19,7 @@ import (
 	"github.com/quintans/torflix/internal/lib/files"
 	"github.com/quintans/torflix/internal/lib/magnet"
 	"github.com/quintans/torflix/internal/lib/safe"
+	"github.com/quintans/torflix/internal/lib/timers"
 	"github.com/quintans/torflix/internal/model"
 )
 
@@ -111,6 +113,18 @@ func (c Search) SearchModel() (*model.Search, error) {
 }
 
 func (c Search) Search(query string, selectedProviders []string) ([]components.MagnetItem, error) {
+	d := timers.NewDebounce(time.Second, func() {
+		c.eventBus.Publish(app.Loading{
+			Text: "Searching torrents",
+			Show: true,
+		})
+	})
+
+	defer func() {
+		d.Stop()
+		c.eventBus.Publish(app.Loading{}) // hide spinner
+	}()
+
 	query = strings.TrimSpace(query)
 	model, err := c.repo.LoadSearch()
 	if err != nil {

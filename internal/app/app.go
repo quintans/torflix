@@ -30,6 +30,7 @@ type AppView interface {
 	Show(AppData)
 	ShowNotification(evt Notify)
 	EnableTabs(bool)
+	Loading(Loading)
 }
 
 type AppData struct {

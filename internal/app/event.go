@@ -2,6 +2,15 @@ package app
 
 import "fmt"
 
+type Loading struct {
+	Text string
+	Show bool
+}
+
+func (Loading) Kind() string {
+	return "wait"
+}
+
 type ClearCache struct{}
 
 func (ClearCache) Kind() string {

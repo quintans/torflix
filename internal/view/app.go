@@ -2,11 +2,11 @@ package view
 
 import (
 	"image/color"
-	"sync"
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/canvas"
 	"fyne.io/fyne/v2/container"
+	"fyne.io/fyne/v2/dialog"
 	"fyne.io/fyne/v2/layout"
 	"fyne.io/fyne/v2/theme"
 	"fyne.io/fyne/v2/widget"
@@ -26,21 +26,35 @@ type AppController interface {
 }
 
 type App struct {
-	window        fyne.Window
-	container     *fyne.Container
-	controller    AppController
-	clear         *widget.Button
-	notifications []*fyne.Container
-	mu            sync.Mutex
-	notification  *mycontainer.NotificationContainer
-	tabs          *container.AppTabs
+	window       fyne.Window
+	container    *fyne.Container
+	controller   AppController
+	clear        *widget.Button
+	notification *mycontainer.NotificationContainer
+	tabs         *container.AppTabs
+	loading      *dialog.CustomDialog
+	loadingText  *widget.Label
 }
 
 func NewApp(w fyne.Window) *App {
+	inifiniteProgress := widget.NewProgressBarInfinite()
+	inifiniteProgress.Start()
+	// Custom content for the dialog
+	loadingText := widget.NewLabel("")
+	customContent := container.NewVBox(
+		loadingText,
+		inifiniteProgress,
+	)
+
+	// Create the dialog
+	dialog := dialog.NewCustomWithoutButtons("Loading...", customContent, w)
+
 	return &App{
 		window:       w,
 		container:    container.NewBorder(nil, nil, nil, nil),
 		notification: mycontainer.NewNotification(),
+		loading:      dialog,
+		loadingText:  loadingText,
 	}
 }
 
@@ -138,5 +152,16 @@ func (v *App) ShowNotification(evt aapp.Notify) {
 		v.notification.ShowInfo(evt.Message)
 	case aapp.NotifySuccess:
 		v.notification.ShowSuccess(evt.Message)
+	}
+}
+
+func (v *App) Loading(msg app.Loading) {
+	v.loadingText.SetText(msg.Text)
+	if msg.Text == "" {
+		v.loading.Hide()
+		return
+	}
+	if msg.Show {
+		v.loading.Show()
 	}
 }

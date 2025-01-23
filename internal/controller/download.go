@@ -20,6 +20,7 @@ import (
 	"github.com/quintans/torflix/internal/lib/fails"
 	"github.com/quintans/torflix/internal/lib/https"
 	"github.com/quintans/torflix/internal/lib/retry"
+	"github.com/quintans/torflix/internal/lib/timers"
 )
 
 const localhost = "http://localhost:%d/%s"
@@ -111,11 +112,22 @@ func (c *Download) OnEnter() {
 	if err != nil {
 		c.eventBus.Publish(app.NewNotifyError("Something went wrong: %s", err))
 		slog.Error("Something went wrong.", "error", err.Error())
-		os.Exit(1)
 	}
 }
 
 func (c *Download) onEnter() error {
+	d := timers.NewDebounce(time.Second, func() {
+		c.eventBus.Publish(app.Loading{
+			Text: "Downloadind torrent metadata",
+			Show: true,
+		})
+	})
+
+	defer func() {
+		d.Stop()
+		c.eventBus.Publish(app.Loading{}) // hide spinner
+	}()
+
 	model := c.repo.LoadDownload()
 
 	var err error
@@ -159,6 +171,11 @@ func (c *Download) playFile(file *torrent.File, fromList bool) error {
 }
 
 func (c *Download) downloadSubtitles(file *torrent.File) (string, error) {
+	c.eventBus.Publish(app.Loading{
+		Text: "Downloadind subtitles",
+		Show: true,
+	})
+
 	model := c.repo.LoadDownload()
 	query := model.OriginalQuery()
 
@@ -325,8 +342,8 @@ func (c *Download) downloadTorrentFile(file *torrent.File, filename string) erro
 
 	go func() {
 		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			c.eventBus.Publish(app.NewNotifyError("Failed to serve file: %s", err))
 			slog.Error("Failed to serve file", "error", err)
-			os.Exit(1)
 		}
 	}()
 

@@ -190,7 +190,7 @@ func (o *OpenSubtitles) search(query string, season, episode int, languages []st
 		if resp.StatusCode == http.StatusTooManyRequests {
 			return nil, fails.New("too many requests for search", "retry-after", resp.Header.Get("Retry-After"))
 		}
-		return nil, retry.NewPermanentError(fmt.Errorf("failed to search subtitles, status code: %d: %w", resp.StatusCode))
+		return nil, retry.NewPermanentError(fmt.Errorf("failed to search subtitles, status code: %d", resp.StatusCode))
 	}
 
 	var searchResp SearchResponse
