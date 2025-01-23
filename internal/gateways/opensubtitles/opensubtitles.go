@@ -12,6 +12,8 @@ import (
 	"strings"
 
 	"github.com/quintans/torflix/internal/app"
+	"github.com/quintans/torflix/internal/lib/fails"
+	"github.com/quintans/torflix/internal/lib/https"
 	"github.com/quintans/torflix/internal/lib/retry"
 )
 
@@ -98,7 +100,7 @@ func (o *OpenSubtitles) Login() (string, error) {
 func (o *OpenSubtitles) Logout(token string) error {
 	return retry.Do(func() error {
 		return o.logout(token)
-	})
+	}, retry.WithDelayFunc(https.DelayFunc))
 }
 
 func (o *OpenSubtitles) logout(token string) error {
@@ -120,7 +122,7 @@ func (o *OpenSubtitles) logout(token string) error {
 
 	if resp.StatusCode != http.StatusOK {
 		if resp.StatusCode == http.StatusTooManyRequests {
-			return fmt.Errorf("too many requests")
+			return fails.New("too many requests for logout", "retry-after", resp.Header.Get("Retry-After"))
 		}
 		return retry.NewPermanentError(fmt.Errorf("failed to logout, status code: %d: %w", resp.StatusCode))
 	}
@@ -130,13 +132,9 @@ func (o *OpenSubtitles) logout(token string) error {
 
 // Search searches for subtitles in specified languages for a given query
 func (o *OpenSubtitles) Search(query string, season, episode int, languages []string) ([]app.SubtitleAttributes, error) {
-	var attrs []app.SubtitleAttributes
-	var err error
-	err = retry.Do(func() error {
-		attrs, err = o.search(query, season, episode, languages)
-		return err
-	})
-	return attrs, err
+	return retry.Do2(func() ([]app.SubtitleAttributes, error) {
+		return o.search(query, season, episode, languages)
+	}, retry.WithDelayFunc(https.DelayFunc))
 }
 
 func (o *OpenSubtitles) search(query string, season, episode int, languages []string) ([]app.SubtitleAttributes, error) {
@@ -190,7 +188,7 @@ func (o *OpenSubtitles) search(query string, season, episode int, languages []st
 
 	if resp.StatusCode != http.StatusOK {
 		if resp.StatusCode == http.StatusTooManyRequests {
-			return nil, fmt.Errorf("too many requests")
+			return nil, fails.New("too many requests for search", "retry-after", resp.Header.Get("Retry-After"))
 		}
 		return nil, retry.NewPermanentError(fmt.Errorf("failed to search subtitles, status code: %d: %w", resp.StatusCode))
 	}
@@ -223,13 +221,9 @@ func (o *OpenSubtitles) search(query string, season, episode int, languages []st
 
 // downloadSubtitle retrieves the download link for a given subtitle ID
 func (o *OpenSubtitles) Download(token string, fileID int) (app.DownloadResponse, error) {
-	var res app.DownloadResponse
-	var err error
-	err = retry.Do(func() error {
-		res, err = o.download(token, fileID)
-		return err
-	})
-	return res, err
+	return retry.Do2(func() (app.DownloadResponse, error) {
+		return o.download(token, fileID)
+	}, retry.WithDelayFunc(https.DelayFunc))
 }
 
 func (o *OpenSubtitles) download(token string, fileID int) (app.DownloadResponse, error) {
@@ -253,7 +247,7 @@ func (o *OpenSubtitles) download(token string, fileID int) (app.DownloadResponse
 
 	if resp.StatusCode != http.StatusOK {
 		if resp.StatusCode == http.StatusTooManyRequests {
-			return app.DownloadResponse{}, fmt.Errorf("too many requests")
+			return app.DownloadResponse{}, fails.New("too many requests for download", "retry-after", resp.Header.Get("Retry-After"))
 		}
 		return app.DownloadResponse{}, retry.NewPermanentError(fmt.Errorf("downloading subtitle, status code: %d: %w", resp.StatusCode))
 	}

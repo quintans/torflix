@@ -17,6 +17,8 @@ import (
 
 	"github.com/anacrolix/torrent"
 	"github.com/quintans/torflix/internal/app"
+	"github.com/quintans/torflix/internal/lib/fails"
+	"github.com/quintans/torflix/internal/lib/https"
 	"github.com/quintans/torflix/internal/lib/retry"
 )
 
@@ -252,8 +254,9 @@ func insertLang(index int, filename, language string) string {
 func saveSubtitleFileRetry(downloadLink, fileName string) error {
 	return retry.Do(func() error {
 		return saveSubtitleFile(downloadLink, fileName)
-	})
+	}, retry.WithDelayFunc(https.DelayFunc))
 }
+
 func saveSubtitleFile(downloadLink, fileName string) error {
 	resp, err := http.Get(downloadLink)
 	if err != nil {
@@ -263,7 +266,7 @@ func saveSubtitleFile(downloadLink, fileName string) error {
 
 	if resp.StatusCode != http.StatusOK {
 		if resp.StatusCode == http.StatusTooManyRequests {
-			return fmt.Errorf("too many requests")
+			return fails.New("too many requests for downloading subtitle", "retry-after", resp.Header.Get("Retry-After"))
 		}
 		return retry.NewPermanentError(fmt.Errorf("failed to fetch subtitle file, status code: %d", resp.StatusCode))
 	}

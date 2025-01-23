@@ -211,6 +211,8 @@ func (c Search) Search(query string, selectedProviders []string) ([]components.M
 		}
 		if r.Quality != 0 {
 			items[i].Quality = qualities[r.Quality-1]
+		} else {
+			items[i].Quality = "SD"
 		}
 	}
 
@@ -400,7 +402,6 @@ func cleanTorrentName(torrentName string) string {
 	// Find the first occurrence of the pattern
 	loc := seasonEpisodePattern.FindStringIndex(torrentName)
 	if loc != nil {
-		fmt.Println("===> found importatant:", torrentName[loc[0]:loc[1]])
 		// Keep everything up to and including the matched pattern
 		torrentName = torrentName[:loc[1]]
 	}
