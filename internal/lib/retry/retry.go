@@ -56,7 +56,7 @@ func WithDelayFunc(f func(retry int, err error) time.Duration) Option {
 }
 
 func Do(f func() error, options ...Option) error {
-	_, err := Do2[any](func() (any, error) {
+	_, err := Do2(func() (any, error) {
 		return nil, f()
 	})
 	return err
