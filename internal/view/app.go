@@ -47,7 +47,7 @@ func NewApp(w fyne.Window) *App {
 	)
 
 	// Create the dialog
-	dialog := dialog.NewCustomWithoutButtons("Loading...", customContent, w)
+	dialog := dialog.NewCustomWithoutButtons("Working...", customContent, w)
 
 	return &App{
 		window:       w,
