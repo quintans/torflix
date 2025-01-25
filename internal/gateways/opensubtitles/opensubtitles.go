@@ -61,7 +61,15 @@ func New(username, password string) *OpenSubtitles {
 }
 
 // login authenticates and retrieves a Bearer token using username and password
-func (o *OpenSubtitles) Login() (string, error) {
+func (o *OpenSubtitles) Login() (token string, err error) {
+	err = retry.Do(func() error {
+		token, err = o.login()
+		return err
+	}, retry.WithDelayFunc(https.DelayFunc))
+	return
+}
+
+func (o *OpenSubtitles) login() (string, error) {
 	url := fmt.Sprintf("%s/login", BaseURL)
 	loginData := LoginRequest{
 		Username: o.username,
@@ -83,6 +91,9 @@ func (o *OpenSubtitles) Login() (string, error) {
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
+		if resp.StatusCode == http.StatusTooManyRequests {
+			return "", fails.New("too many requests for login", "retry-after", resp.Header.Get("Retry-After"))
+		}
 		body, _ := io.ReadAll(resp.Body)
 		return "", fmt.Errorf("failed to login, status code: %d, response: %s", resp.StatusCode, string(body))
 	}
@@ -124,17 +135,19 @@ func (o *OpenSubtitles) logout(token string) error {
 		if resp.StatusCode == http.StatusTooManyRequests {
 			return fails.New("too many requests for logout", "retry-after", resp.Header.Get("Retry-After"))
 		}
-		return retry.NewPermanentError(fmt.Errorf("failed to logout, status code: %d: %w", resp.StatusCode))
+		return retry.NewPermanentError(fmt.Errorf("failed to logout, status code: %d", resp.StatusCode))
 	}
 
 	return nil
 }
 
 // Search searches for subtitles in specified languages for a given query
-func (o *OpenSubtitles) Search(query string, season, episode int, languages []string) ([]app.SubtitleAttributes, error) {
-	return retry.Do2(func() ([]app.SubtitleAttributes, error) {
-		return o.search(query, season, episode, languages)
+func (o *OpenSubtitles) Search(query string, season, episode int, languages []string) (attrs []app.SubtitleAttributes, err error) {
+	err = retry.Do(func() error {
+		attrs, err = o.search(query, season, episode, languages)
+		return err
 	}, retry.WithDelayFunc(https.DelayFunc))
+	return
 }
 
 func (o *OpenSubtitles) search(query string, season, episode int, languages []string) ([]app.SubtitleAttributes, error) {
@@ -220,10 +233,12 @@ func (o *OpenSubtitles) search(query string, season, episode int, languages []st
 }
 
 // downloadSubtitle retrieves the download link for a given subtitle ID
-func (o *OpenSubtitles) Download(token string, fileID int) (app.DownloadResponse, error) {
-	return retry.Do2(func() (app.DownloadResponse, error) {
-		return o.download(token, fileID)
+func (o *OpenSubtitles) Download(token string, fileID int) (res app.DownloadResponse, err error) {
+	err = retry.Do(func() error {
+		res, err = o.download(token, fileID)
+		return err
 	}, retry.WithDelayFunc(https.DelayFunc))
+	return
 }
 
 func (o *OpenSubtitles) download(token string, fileID int) (app.DownloadResponse, error) {
@@ -249,7 +264,7 @@ func (o *OpenSubtitles) download(token string, fileID int) (app.DownloadResponse
 		if resp.StatusCode == http.StatusTooManyRequests {
 			return app.DownloadResponse{}, fails.New("too many requests for download", "retry-after", resp.Header.Get("Retry-After"))
 		}
-		return app.DownloadResponse{}, retry.NewPermanentError(fmt.Errorf("downloading subtitle, status code: %d: %w", resp.StatusCode))
+		return app.DownloadResponse{}, retry.NewPermanentError(fmt.Errorf("downloading subtitle, status code: %d", resp.StatusCode))
 	}
 
 	var res app.DownloadResponse

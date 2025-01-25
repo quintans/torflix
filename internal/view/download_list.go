@@ -1,8 +1,6 @@
 package view
 
 import (
-	"log/slog"
-
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/container"
 	"fyne.io/fyne/v2/layout"
@@ -14,7 +12,7 @@ import (
 
 type DownloadListController interface {
 	Back()
-	PlayFile(*torrent.File) error
+	PlayFile(*torrent.File)
 }
 
 type DownloadList struct {
@@ -53,11 +51,7 @@ func (s *DownloadList) Show(files []*torrent.File) {
 		},
 	)
 	result.OnSelected = func(id widget.ListItemID) {
-		err := s.controller.PlayFile(files[id])
-		if err != nil {
-			s.eventBus.Publish(app.NewNotifyError("Failed to play file: %s", err.Error()))
-			slog.Error("Failed to play file.", "error", err.Error())
-		}
+		s.controller.PlayFile(files[id])
 	}
 
 	s.showViewer.ShowView(container.NewBorder(

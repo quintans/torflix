@@ -118,7 +118,7 @@ func (c *Download) OnEnter() {
 func (c *Download) onEnter() error {
 	d := timers.NewDebounce(time.Second, func() {
 		c.eventBus.Publish(app.Loading{
-			Text: "Downloadind torrent metadata",
+			Text: "Downloading torrent metadata",
 			Show: true,
 		})
 	})
@@ -155,25 +155,39 @@ func (c *Download) onEnter() error {
 	return nil
 }
 
-func (c *Download) PlayFile(file *torrent.File) error {
-	return c.playFile(file, true)
+func (c *Download) PlayFile(file *torrent.File) {
+	d := timers.NewDebounce(time.Second, func() {
+		c.eventBus.Publish(app.Loading{
+			Show: true,
+		})
+	})
+
+	defer func() {
+		d.Stop()
+		c.eventBus.Publish(app.Loading{}) // hide spinner
+	}()
+
+	err := c.playFile(file, true)
+	if err != nil {
+		c.eventBus.Publish(app.NewNotifyError("Failed to play file: %s", err.Error()))
+		slog.Error("Failed to play file.", "error", err.Error())
+		return
+	}
 }
 
 func (c *Download) playFile(file *torrent.File, fromList bool) error {
-	c.fromList = fromList
-
 	cleanedQuery, err := c.downloadSubtitles(file)
 	if err != nil {
 		return fmt.Errorf("downloading subtitles: %w", err)
 	}
 
+	c.fromList = fromList
 	return c.downloadTorrentFile(file, cleanedQuery)
 }
 
 func (c *Download) downloadSubtitles(file *torrent.File) (string, error) {
 	c.eventBus.Publish(app.Loading{
-		Text: "Downloadind subtitles",
-		Show: true,
+		Text: "Downloading subtitles",
 	})
 
 	model := c.repo.LoadDownload()
@@ -315,19 +329,25 @@ func (c *Download) downloadTorrentFile(file *torrent.File, filename string) erro
 
 	ctx, cancel := context.WithCancel(context.Background())
 	go func() {
+		fn := func() {
+			stats := c.client.Stats()
+			if stats.ReadyForPlayback {
+				stats.Stream = fmt.Sprintf(localhost, settings.Port(), c.servingFile)
+			} else {
+				stats.Stream = "Not ready for playback"
+			}
+			c.downloadView.SetStats(stats)
+		}
+		fn()
+
+		ticker := time.NewTicker(time.Second)
+		defer ticker.Stop()
 		for {
 			select {
 			case <-ctx.Done():
 				return
-			default:
-				stats := c.client.Stats()
-				if stats.ReadyForPlayback {
-					stats.Stream = fmt.Sprintf(localhost, settings.Port(), c.servingFile)
-				} else {
-					stats.Stream = "Not ready for playback"
-				}
-				c.downloadView.SetStats(stats)
-				time.Sleep(time.Second)
+			case <-ticker.C:
+				fn()
 			}
 		}
 	}()

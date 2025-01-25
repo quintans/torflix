@@ -41,36 +41,6 @@ func TestDo_PermanentError(t *testing.T) {
 	assert.Equal(t, 1, count)
 }
 
-func TestDo2_Success(t *testing.T) {
-	result, err := retry.Do2(func() (int, error) {
-		return 42, nil
-	})
-	assert.NoError(t, err)
-	assert.Equal(t, 42, result)
-}
-
-func TestDo2_Failure(t *testing.T) {
-	count := 0
-	expectedErr := errors.New("failed")
-	_, err := retry.Do2(func() (int, error) {
-		count++
-		return 0, expectedErr
-	}, retry.WithRetries(1))
-	assert.ErrorIs(t, err, expectedErr)
-	assert.Equal(t, 2, count)
-}
-
-func TestDo2_PermanentError(t *testing.T) {
-	count := 0
-	expectedErr := errors.New("permanent error")
-	_, err := retry.Do2(func() (int, error) {
-		count++
-		return 0, retry.NewPermanentError(expectedErr)
-	}, retry.WithRetries(3))
-	assert.ErrorIs(t, err, expectedErr)
-	assert.Equal(t, 1, count)
-}
-
 func TestDo_WithDelay(t *testing.T) {
 	start := time.Now()
 	err := retry.Do(func() error {

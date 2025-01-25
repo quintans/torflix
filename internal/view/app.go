@@ -156,12 +156,17 @@ func (v *App) ShowNotification(evt aapp.Notify) {
 }
 
 func (v *App) Loading(msg app.Loading) {
-	v.loadingText.SetText(msg.Text)
-	if msg.Text == "" {
-		v.loading.Hide()
-		return
+	if msg.Text != "" {
+		v.loadingText.SetText(msg.Text)
 	}
+
 	if msg.Show {
 		v.loading.Show()
+		return
+	}
+
+	if msg.Text == "" && !msg.Show {
+		v.loading.Hide()
+		v.loadingText.SetText("")
 	}
 }

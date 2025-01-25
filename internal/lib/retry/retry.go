@@ -81,13 +81,6 @@ func WithDelayFunc(f func(retry int, err error) time.Duration) Option {
 }
 
 func Do(f func() error, options ...Option) error {
-	_, err := Do2(func() (any, error) {
-		return nil, f()
-	}, options...)
-	return err
-}
-
-func Do2[T any](f func() (T, error), options ...Option) (T, error) {
 	opts := &Options{
 		retries: 3,
 		delayFunc: func(int, error) time.Duration {
@@ -99,25 +92,24 @@ func Do2[T any](f func() (T, error), options ...Option) (T, error) {
 	}
 
 	var err error
-	var t T
 	for i := 0; opts.retries == 0 || i <= opts.retries; i++ {
-		t, err = f()
+		err = f()
 		if err == nil {
-			return t, nil
+			return nil
 		}
 
 		var perr PermanentError
 		if errors.As(err, &perr) {
-			return t, perr.Unwrap()
+			return perr.Unwrap()
 		}
 
 		if opts.retries == 0 || i < opts.retries {
 			delay := opts.delayFunc(i+1, err)
 			if delay == 0 {
-				return t, err
+				return err
 			}
 			time.Sleep(delay)
 		}
 	}
-	return t, err
+	return err
 }

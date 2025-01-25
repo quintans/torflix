@@ -3,12 +3,14 @@ package app
 import "fmt"
 
 type Loading struct {
+	// If set, it will update the loading text.
 	Text string
+	// If it is true, it will show the loading indicator. If false and Text is empty it will hide.
 	Show bool
 }
 
 func (Loading) Kind() string {
-	return "wait"
+	return "loading"
 }
 
 type ClearCache struct{}

@@ -106,10 +106,6 @@ func (v *App) ShowNotification(evt app.Notify) {
 	v.view.ShowNotification(evt)
 }
 
-func (v *App) Loading(msg app.Loading) {
-	v.view.Loading(msg)
-}
-
 func (v *App) SetOpenSubtitles(username, password string) {
 	err := v.secrets.SetOpenSubtitles(password)
 	if err != nil {
