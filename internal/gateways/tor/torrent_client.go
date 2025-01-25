@@ -30,7 +30,9 @@ type TorrentClient struct {
 	Config     ClientConfig
 	File       *torrent.File
 	TorrentDir string
-	closed     bool
+	paused     bool
+
+	torrentConfig *torrent.ClientConfig
 }
 
 // ClientConfig specifies the behaviour of a client.
@@ -89,6 +91,7 @@ func NewTorrentClient(cfg ClientConfig, torrentDir, mediaDir string, resource st
 	}
 
 	client.Client = c
+	client.torrentConfig = torrentConfig
 
 	// Add torrent.
 
@@ -170,6 +173,9 @@ func saveTorrent(torrentFileDir string, t *torrent.Torrent) error {
 }
 
 func (c *TorrentClient) Play(file *torrent.File) {
+	c.torrentConfig.Seed = c.Config.Seed
+	c.torrentConfig.NoUpload = !c.Config.Seed
+
 	c.File = file
 
 	t := c.Torrent
@@ -185,16 +191,14 @@ func (c *TorrentClient) Play(file *torrent.File) {
 }
 
 func (c *TorrentClient) PauseTorrent() {
+	c.paused = true
+	c.torrentConfig.NoUpload = true
+	c.torrentConfig.Seed = false
 	c.Torrent.CancelPieces(0, c.Torrent.NumPieces())
 }
 
 // Close cleans up the connections.
 func (c *TorrentClient) Close() {
-	if c.closed {
-		return
-	}
-
-	c.closed = true
 	c.Torrent.Closed()
 	c.Torrent.Drop()
 
@@ -206,6 +210,10 @@ func (c *TorrentClient) Close() {
 
 // Render outputs the command line interface for the client.
 func (c *TorrentClient) Stats() app.Stats {
+	if c.paused {
+		return app.Stats{}
+	}
+
 	t := c.Torrent
 
 	c.File.BytesCompleted()
@@ -231,13 +239,16 @@ func (c *TorrentClient) Stats() app.Stats {
 		Done:          currentProgress >= size,
 	}
 
-	if !c.closed && stats.Done && !c.Config.SeedAfterComplete {
-		c.Close()
-	}
-
 	c.Progress = currentProgress
 	c.Uploaded = currentUpload
 	c.Size = size
+
+	if !c.paused && stats.Done && !c.Config.SeedAfterComplete {
+		c.PauseTorrent()
+		stats.UploadSpeed = 0
+		stats.DownloadSpeed = 0
+		stats.Seeders = 0
+	}
 
 	stats.ReadyForPlayback = c.ReadyForPlayback()
 
