@@ -37,7 +37,7 @@ func WithRetries(retries int) Option {
 }
 
 // WithDelay sets the delay between retries.
-// If not set, it will use a default delay of 1 second.
+// If not set, it will use a default delay of 100 milliseconds.
 func WithDelay(delay time.Duration) Option {
 	return func(o *Options) {
 		o.delayFunc = func(attempt int, err error) time.Duration {
@@ -46,8 +46,33 @@ func WithDelay(delay time.Duration) Option {
 	}
 }
 
+// WithDelays sets the delays between retries.
+// The number of retries will be the number of delays.
+func WithDelays(delays ...time.Duration) Option {
+	return func(o *Options) {
+		o.retries = len(delays)
+		o.delayFunc = func(attempt int, err error) time.Duration {
+			return delays[attempt-1]
+		}
+	}
+}
+
+// WithInfiniteDelays sets the delays between retries.
+// The number of retries will be infinite.
+// If the number of the retry is greater than the number of delays, it will use the last delay.
+func WithInfiniteDelays(delays ...time.Duration) Option {
+	return func(o *Options) {
+		o.retries = 0
+		o.delayFunc = func(attempt int, err error) time.Duration {
+			if attempt > len(delays) {
+				return delays[len(delays)-1]
+			}
+			return delays[attempt-1]
+		}
+	}
+}
+
 // WithDelayFunc sets the delay function between retries.
-// If not set, it will use a default delay of 1 second.
 // If the function returns 0, it will stop retrying.
 func WithDelayFunc(f func(retry int, err error) time.Duration) Option {
 	return func(o *Options) {
@@ -58,7 +83,7 @@ func WithDelayFunc(f func(retry int, err error) time.Duration) Option {
 func Do(f func() error, options ...Option) error {
 	_, err := Do2(func() (any, error) {
 		return nil, f()
-	})
+	}, options...)
 	return err
 }
 
@@ -66,7 +91,7 @@ func Do2[T any](f func() (T, error), options ...Option) (T, error) {
 	opts := &Options{
 		retries: 3,
 		delayFunc: func(int, error) time.Duration {
-			return time.Second
+			return 100 * time.Millisecond
 		},
 	}
 	for _, o := range options {
@@ -75,7 +100,7 @@ func Do2[T any](f func() (T, error), options ...Option) (T, error) {
 
 	var err error
 	var t T
-	for i := 1; opts.retries == 0 || i <= opts.retries; i++ {
+	for i := 0; opts.retries == 0 || i <= opts.retries; i++ {
 		t, err = f()
 		if err == nil {
 			return t, nil
@@ -86,8 +111,8 @@ func Do2[T any](f func() (T, error), options ...Option) (T, error) {
 			return t, perr.Unwrap()
 		}
 
-		if opts.retries == 0 || i <= opts.retries {
-			delay := opts.delayFunc(i, err)
+		if opts.retries == 0 || i < opts.retries {
+			delay := opts.delayFunc(i+1, err)
 			if delay == 0 {
 				return t, err
 			}
