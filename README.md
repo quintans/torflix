@@ -33,8 +33,10 @@ FYNE_SCALE=3 ./torflix
 Building only for the current platform:
 
 ```bash
-go build -o ./builds .
+go build -ldflags "-X github.com/quintans/torflix/internal/gateways/opensubtitles.APIKey=$OS_API_KEY" -o ./builds/ .
 ```
+
+where `OS_API_KEY` is an environment variable with the opensubtitles apikey.
 
 ## Credits
 - [go-peerflix](https://github.com/Sioro-Neoku/go-peerflix) for the awesome example provided

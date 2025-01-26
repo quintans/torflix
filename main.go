@@ -22,6 +22,8 @@ import (
 	"github.com/quintans/torflix/internal/view"
 )
 
+var APIKey string
+
 func main() {
 	path, err := os.UserCacheDir()
 	if err != nil {
