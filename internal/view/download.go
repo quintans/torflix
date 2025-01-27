@@ -44,7 +44,6 @@ func (d *Download) SetController(controller DownloadController) {
 
 func (v *Download) Show(torName string, subFile string) {
 	v.stream = widget.NewLabel("")
-	v.stream = widget.NewLabel("")
 	v.progress = widget.NewLabel("")
 	v.downloadSpeed = widget.NewLabel("")
 	v.uploadSpeed = widget.NewLabel("")

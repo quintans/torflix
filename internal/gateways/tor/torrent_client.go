@@ -173,6 +173,7 @@ func saveTorrent(torrentFileDir string, t *torrent.Torrent) error {
 }
 
 func (c *TorrentClient) Play(file *torrent.File) {
+	c.paused = false
 	c.torrentConfig.Seed = c.Config.Seed
 	c.torrentConfig.NoUpload = !c.Config.Seed
 

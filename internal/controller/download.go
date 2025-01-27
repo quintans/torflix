@@ -198,7 +198,11 @@ func (c *Download) downloadSubtitles(file *torrent.File) (string, error) {
 
 	queryAndSeason := strings.ReplaceAll(cleanedQuery, " ", "_")
 	if season > 0 {
-		queryAndSeason = queryAndSeason + fmt.Sprintf("_s%de%d", season, episode)
+		if episode == 0 {
+			queryAndSeason = queryAndSeason + fmt.Sprintf("_%02d", season)
+		} else {
+			queryAndSeason = queryAndSeason + fmt.Sprintf("_s%02de%02d", season, episode)
+		}
 	}
 
 	settings, err := c.repo.LoadSettings()
@@ -331,7 +335,7 @@ func (c *Download) downloadTorrentFile(file *torrent.File, filename string) erro
 	go func() {
 		fn := func() {
 			stats := c.client.Stats()
-			if stats.ReadyForPlayback {
+			if stats == (app.Stats{}) || stats.ReadyForPlayback {
 				stats.Stream = fmt.Sprintf(localhost, settings.Port(), c.servingFile)
 			} else {
 				stats.Stream = "Not ready for playback"
@@ -437,11 +441,12 @@ func extractSeasonEpisode(name string, clean bool) (string, int, int) {
 
 	// Define patterns for TV show (season and episode)
 	tvShowPatterns := []string{
-		`(?i)(S(\d{1,2})E(\d{1,2}))`, // Pattern: S01E01
-		`(?i)((\d{1,2})x(\d{1,2}))`,  // Pattern: 1x01
-		`(?i)(S(\d{1,2}))`,           // Pattern: S01
-		`(?i)(Season (\d{1,2}))`,     // Pattern: Season 01
-		`(?i)(Season-(\d{1,2}))`,     // Pattern: Season-01
+		`(?i)(S(\d{1,2})E(\d{1,2}))`,    // Pattern: S01E01
+		`(?i)((\d{1,2})x(\d{1,2}))`,     // Pattern: 1x01
+		`(?i)(S(\d{1,2}))`,              // Pattern: S01
+		`(?i)(Season (\d{1,2}))`,        // Pattern: Season 01
+		`(?i)(Season-(\d{1,2}))`,        // Pattern: Season-01
+		`(?i)([\s\-]?(\d{1,2})[\s\-]?)`, // Pattern: 01 may or may not have a space or a dash at the beginning
 	}
 
 	var season, episode int
@@ -457,7 +462,11 @@ func extractSeasonEpisode(name string, clean bool) (string, int, int) {
 			if clean {
 				loc := re.FindStringIndex(name)
 				if loc != nil {
-					name = name[:loc[0]] // inclusive truncate on pattern math
+					if loc[0] == 0 {
+						name = name[loc[1]:] // remove the pattern match
+					} else {
+						name = name[:loc[0]] // inclusive truncate on pattern math
+					}
 				}
 			}
 			break
