@@ -51,7 +51,13 @@ type DownloadView interface {
 }
 
 type DownloadListView interface {
-	Show(files []*torrent.File)
+	Show(files []FileItem)
+}
+
+type FileItem struct {
+	Name     string
+	Size     int64
+	Selected bool
 }
 
 type Stats struct {

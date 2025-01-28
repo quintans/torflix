@@ -10,7 +10,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
-	"slices"
+	gslices "slices"
 	"strconv"
 	"strings"
 	"time"
@@ -20,6 +20,7 @@ import (
 	"github.com/quintans/torflix/internal/lib/fails"
 	"github.com/quintans/torflix/internal/lib/https"
 	"github.com/quintans/torflix/internal/lib/retry"
+	"github.com/quintans/torflix/internal/lib/slices"
 	"github.com/quintans/torflix/internal/lib/timers"
 )
 
@@ -48,9 +49,14 @@ type Download struct {
 	servingFile            string
 
 	fromList bool
-	files    []*torrent.File
+	files    []fileItem
 	eventBus app.EventBus
 	secrets  app.Secrets
+}
+
+type fileItem struct {
+	file     *torrent.File
+	selected bool
 }
 
 func NewDownload(
@@ -96,7 +102,7 @@ func (c *Download) Back() {
 
 	if c.fromList {
 		c.client.PauseTorrent()
-		c.downloadListView.Show(c.files)
+		c.showList()
 		c.fromList = false
 		return
 	}
@@ -105,6 +111,16 @@ func (c *Download) Back() {
 	c.client = nil
 
 	c.nav.Back()
+}
+
+func (c *Download) showList() {
+	c.downloadListView.Show(slices.Map(c.files, func(it fileItem) app.FileItem {
+		return app.FileItem{
+			Name:     it.file.DisplayPath(),
+			Size:     it.file.Length(),
+			Selected: it.selected,
+		}
+	}))
 }
 
 func (c *Download) OnEnter() {
@@ -145,17 +161,24 @@ func (c *Download) onEnter() error {
 		return c.playFile(files[0], false)
 	}
 
-	slices.SortFunc(files, func(i, j *torrent.File) int {
+	gslices.SortFunc(files, func(i, j *torrent.File) int {
 		return cmp.Compare(i.DisplayPath(), j.DisplayPath())
 	})
 
-	c.files = files
-	c.downloadListView.Show(files)
+	c.files = slices.Map(files, func(file *torrent.File) fileItem {
+		return fileItem{
+			file: file,
+		}
+	})
+	c.showList()
 
 	return nil
 }
 
-func (c *Download) PlayFile(file *torrent.File) {
+func (c *Download) PlayFile(findex int) {
+	c.files[findex].selected = true
+
+	file := c.files[findex].file
 	d := timers.NewDebounce(time.Second, func() {
 		c.eventBus.Publish(app.Loading{
 			Show: true,
@@ -256,11 +279,11 @@ func (c *Download) downloadSubtitles(file *torrent.File) (string, error) {
 		}
 	}()
 
-	slices.SortFunc(subtitles, func(i, j app.SubtitleAttributes) int {
-		slices.Index(languages, i.Language)
+	gslices.SortFunc(subtitles, func(i, j app.SubtitleAttributes) int {
+		gslices.Index(languages, i.Language)
 		return cmp.Compare(
-			slices.Index(languages, i.Language),
-			slices.Index(languages, j.Language),
+			gslices.Index(languages, i.Language),
+			gslices.Index(languages, j.Language),
 		)
 	})
 

@@ -5,14 +5,13 @@ import (
 	"fyne.io/fyne/v2/container"
 	"fyne.io/fyne/v2/layout"
 	"fyne.io/fyne/v2/widget"
-	"github.com/anacrolix/torrent"
 	"github.com/dustin/go-humanize"
 	"github.com/quintans/torflix/internal/app"
 )
 
 type DownloadListController interface {
 	Back()
-	PlayFile(*torrent.File)
+	PlayFile(idx int)
 }
 
 type DownloadList struct {
@@ -32,10 +31,10 @@ func (s *DownloadList) SetController(controller DownloadListController) {
 	s.controller = controller
 }
 
-func (s *DownloadList) Show(files []*torrent.File) {
+func (s *DownloadList) Show(fileItems []app.FileItem) {
 	result := widget.NewList(
 		func() int {
-			return len(files)
+			return len(fileItems)
 		},
 		func() fyne.CanvasObject {
 			nameLbl := widget.NewLabel("")
@@ -46,12 +45,22 @@ func (s *DownloadList) Show(files []*torrent.File) {
 		},
 		func(i widget.ListItemID, o fyne.CanvasObject) {
 			it := o.(*fyne.Container)
-			it.Objects[0].(*widget.Label).SetText(files[i].DisplayPath())
-			it.Objects[1].(*widget.Label).SetText(humanize.Bytes(uint64(files[i].Length())))
+			name := it.Objects[0].(*widget.Label)
+			name.SetText(fileItems[i].Name)
+			size := it.Objects[1].(*widget.Label)
+			size.SetText(humanize.Bytes(uint64(fileItems[i].Size)))
+			if fileItems[i].Selected {
+				name.Importance = widget.HighImportance
+				size.Importance = widget.HighImportance
+			} else {
+				name.Importance = widget.MediumImportance
+				size.Importance = widget.MediumImportance
+			}
 		},
 	)
 	result.OnSelected = func(id widget.ListItemID) {
-		s.controller.PlayFile(files[id])
+		s.controller.PlayFile(id)
+		result.Refresh()
 	}
 
 	s.showViewer.ShowView(container.NewBorder(
