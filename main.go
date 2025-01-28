@@ -148,6 +148,7 @@ func main() {
 
 	bus.Listen(b, appCtrl.OnNavigation)
 	bus.Listen(b, downloadCtrl.ClearCache)
+	bus.Listen(b, searchView.ClearCache)
 	bus.Listen(b, appCtrl.ShowNotification)
 	bus.Listen(b, appView.Loading)
 

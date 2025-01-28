@@ -6,6 +6,7 @@ import (
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/container"
 	"fyne.io/fyne/v2/widget"
+	"github.com/quintans/torflix/internal/app"
 	"github.com/quintans/torflix/internal/components"
 	"github.com/quintans/torflix/internal/model"
 )
@@ -134,4 +135,11 @@ func (v *Search) Show(searchModel *model.Search, providers []string) {
 func (v *Search) OnExit() {
 	v.query = nil
 	v.result = nil
+}
+
+func (v *Search) ClearCache(_ app.ClearCache) {
+	for i := range v.data {
+		v.data[i].Cached = false
+	}
+	v.result.Refresh()
 }
