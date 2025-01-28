@@ -166,8 +166,10 @@ func (c *Download) onEnter() error {
 	})
 
 	c.files = slices.Map(files, func(file *torrent.File) fileItem {
+		file.BytesCompleted()
 		return fileItem{
-			file: file,
+			file:     file,
+			selected: file.BytesCompleted() >= file.Length(),
 		}
 	})
 	c.showList()
