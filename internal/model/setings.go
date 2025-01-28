@@ -219,24 +219,12 @@ var (
 			"seeds": "div.tgxtablecell > span[title='Seeders/Leechers'] > font[color='green'] > b"
 		}
 	},
-	"thb": {
-		"queryInPath": true,
-		"name": "THE PIRATE BAY",
-		"url": "https://thehiddenbay.com/search/{{query}}/1/99/0",
-		"list": "table#searchResult > tbody > tr",
-		"result": {
-			"name": "td:nth-child(2) > div.detName > a",
-			"magnet": ["td:nth-child(2) > a", "@href", "/(magnet:\\?xt=urn:btih:[A-Za-z0-9]+)/"],
-			"size": ["td:nth-child(2) > font", "/Size (.*?B),/", ""],
-			"seeds": "td:nth-child(3)"
-		}
-	},
 	"nyaa": {
 		"name": "NYAA",
 		"url": "https://nyaa.si/?f=0&c=0_0&q={{query}}&s=seeders&o=desc",
 		"list": "table.torrent-list > tbody > tr",
 		"result": {
-			"name": ["td:nth-child(2) > a", "@title"],
+			"name": ["td:nth-child(2) > a:last-child", "@title"],
 			"magnet": ["td:nth-child(3) > a:nth-child(2)", "@href"],
 			"size": "td:nth-child(4)",
 			"seeds": "td:nth-child(6)"

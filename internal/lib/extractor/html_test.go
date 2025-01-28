@@ -49,23 +49,6 @@ func TestHtmlExtractor(t *testing.T) {
 			},
 		},
 		{
-			name: "tpb",
-			results: []extractor.Result{
-				{
-					Name:   "SAS Rogue Heroes S02E01 1080p HEVC x265-MeGusta",
-					Magnet: "magnet:?xt=urn:btih:991B63685C6BB91E2A199D8495ECE6AA605A161C",
-					Size:   "346.98\u00a0MiB",
-					Seeds:  "469",
-				},
-				{
-					Name:   "SAS.Rogue.Heroes.S02E01.1080p.x265-ELiTE",
-					Magnet: "magnet:?xt=urn:btih:E8FD58643AFA38A42F298401C8AEC52C061194B5",
-					Size:   "795.41\u00a0MiB",
-					Seeds:  "44",
-				},
-			},
-		},
-		{
 			name: "nyaa",
 			results: []extractor.Result{
 				{
@@ -204,24 +187,12 @@ var searchConfig = []byte(`{
 			"seeds": "div.tgxtablecell > span[title='Seeders/Leechers'] > font[color='green'] > b"
 		}
 	},
-	"tpb": {
-		"queryInPath": true,
-		"name": "THE PIRATE BAY",
-		"url": "http://localhost:1234/search/{{query}}/1/99/0",
-		"list": "table#searchResult > tbody > tr",
-		"result": {
-			"name": "td:nth-child(2) > div.detName > a",
-			"magnet": ["td:nth-child(2) > a", "@href", "/(magnet:\\?xt=urn:btih:[A-Za-z0-9]+)/"],
-			"size": ["td:nth-child(2) > font", "/Size (.*?B),/", ""],
-			"seeds": "td:nth-child(3)"
-		}
-	},
 	"nyaa": {
 		"name": "NYAA",
 		"url": "http://localhost:1234/?f=0&c=0_0&q={{query}}&s=seeders&o=desc",
 		"list": "table.torrent-list > tbody > tr",
 		"result": {
-			"name": ["td:nth-child(2) > a", "@title"],
+			"name": ["td:nth-child(2) > a:last-child", "@title"],
 			"magnet": ["td:nth-child(3) > a:nth-child(2)", "@href", "/(magnet:\\?xt=urn:btih:[A-Za-z0-9]+)/"],
 			"size": "td:nth-child(4)",
 			"seeds": "td:nth-child(6)"
