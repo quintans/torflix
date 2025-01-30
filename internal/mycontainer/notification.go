@@ -77,12 +77,16 @@ func (nc *NotificationContainer) ShowError(message string, opts ...Option) {
 }
 
 func (nc *NotificationContainer) show(title, message string, bgColor, fgColor color.Color, opts options) {
-	titleLabel := newText(title, fgColor, fyne.TextStyle{Bold: true})
-	labelX := newText("x", fgColor, fyne.TextStyle{Bold: true})
-	messageLabel := newText(message, fgColor, fyne.TextStyle{})
+	animations := make([]func(float32), 0)
+	titleLabel, ani := newText(title, fgColor, fyne.TextStyle{Bold: true})
+	animations = append(animations, ani)
+	labelX, ani := newText("x", fgColor, fyne.TextStyle{Bold: true})
+	animations = append(animations, ani)
+	messageLabel, ani := newText(message, fgColor, fyne.TextStyle{})
+	animations = append(animations, ani)
 
 	tap := NewTappable(labelX)
-	var notification fyne.CanvasObject = container.NewBorder(
+	var cardBody fyne.CanvasObject = container.NewBorder(
 		container.NewHBox(titleLabel, layout.NewSpacer(), tap),
 		nil,
 		nil,
@@ -92,23 +96,34 @@ func (nc *NotificationContainer) show(title, message string, bgColor, fgColor co
 
 	bg := canvas.NewRectangle(bgColor)
 	bg.CornerRadius = 5
+	animations = append(animations, rectFadeAnimation(bg))
 
-	notificationContainer := container.NewStack(
+	card := container.NewStack(
 		bg,
-		notification,
+		cardBody,
 	)
-	nc.container.Add(notificationContainer)
+	nc.container.Add(card)
 	nc.container.Refresh()
 
 	tap.OnTapped = func() {
-		nc.container.Remove(notificationContainer)
+		nc.container.Remove(card)
 		nc.container.Refresh()
 	}
 
 	if opts.timeout > 0 {
 		go func() {
-			time.Sleep(opts.timeout)
-			nc.container.Remove(notificationContainer)
+			time.Sleep(opts.timeout - 300*time.Millisecond)
+			done := make(chan struct{})
+			fyne.NewAnimation(300*time.Millisecond, func(p float32) {
+				for _, a := range animations {
+					a(p)
+				}
+				if p == 1 {
+					close(done)
+				}
+			}).Start()
+			<-done
+			nc.container.Remove(card)
 			nc.container.Refresh()
 		}()
 	}
@@ -118,11 +133,37 @@ func (nc *NotificationContainer) Container() *fyne.Container {
 	return nc.container
 }
 
-func newText(txt string, color color.Color, style fyne.TextStyle) *fyne.Container {
+func newText(txt string, color color.Color, style fyne.TextStyle) (*fyne.Container, func(done float32)) {
 	label := components.NewCustomLabel(txt, color)
 	label.WrapWidth = 300
 	label.TextStyle = style
 	label.Alignment = fyne.TextAlignLeading
 
-	return container.NewPadded(label)
+	return container.NewPadded(label), labelFadeAnimation(label)
+}
+
+func rectFadeAnimation(rect *canvas.Rectangle) func(done float32) {
+	r, g, b, a := rect.FillColor.RGBA()
+	return func(done float32) {
+		alpha := uint8(float32(uint8(a)) - float32(uint8(a))*done)
+		rect.FillColor = color.RGBA{
+			R: uint8(r),
+			G: uint8(g),
+			B: uint8(b),
+			A: alpha,
+		}
+	}
+}
+
+func labelFadeAnimation(label *components.CustomLabel) func(done float32) {
+	r, g, b, a := label.Color.RGBA()
+	return func(done float32) {
+		alpha := uint8(float32(uint8(a)) - float32(uint8(a))*done)
+		label.Color = color.RGBA{
+			R: uint8(r),
+			G: uint8(g),
+			B: uint8(b),
+			A: alpha,
+		}
+	}
 }
