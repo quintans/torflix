@@ -119,6 +119,7 @@ func (v *Search) Show(searchModel *model.Search, providers []string) {
 		err := v.controller.Download(originalQuery, v.data[id].Magnet)
 		if err != nil {
 			slog.Error("Failed to download.", "error", err.Error())
+			v.result.Unselect(id)
 		}
 		v.result.Show()
 	}

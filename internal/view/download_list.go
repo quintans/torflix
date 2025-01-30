@@ -60,6 +60,7 @@ func (s *DownloadList) Show(fileItems []app.FileItem) {
 	)
 	result.OnSelected = func(id widget.ListItemID) {
 		s.controller.PlayFile(id)
+		result.Unselect(id)
 		result.Refresh()
 	}
 
