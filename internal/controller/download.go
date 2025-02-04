@@ -206,7 +206,7 @@ func (c *Download) playFile(file *torrent.File, fromList bool) error {
 	}
 
 	c.fromList = fromList
-	return c.downloadTorrentFile(file, cleanedQuery)
+	return c.downloadTorrentFile(file, queryAndSeason)
 }
 
 func (c *Download) getQueryComponents(file *torrent.File) (cleanedQuery, queryAndSeason string, season, episode int) {
