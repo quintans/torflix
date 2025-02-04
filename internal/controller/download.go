@@ -110,6 +110,8 @@ func (c *Download) Back() {
 	c.client.Close()
 	c.client = nil
 
+	c.eventBus.Publish(app.EscapeHandler{})
+
 	c.nav.Back()
 }
 
@@ -131,6 +133,12 @@ func (c *Download) OnEnter() {
 }
 
 func (c *Download) onEnter() error {
+	c.eventBus.Publish(app.EscapeHandler{
+		Handler: func() {
+			c.Back()
+		},
+	})
+
 	d := timers.NewDebounce(time.Second, func() {
 		c.eventBus.Publish(app.Loading{
 			Text: "Downloading torrent metadata",
