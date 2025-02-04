@@ -326,7 +326,7 @@ func (c *Download) downloadSubtitles(file *torrent.File, cleanedQuery, queryAndS
 func wordMatch(tokens []string, name string) bool {
 	name = strings.ToLower(name)
 	for _, token := range tokens {
-		if !strings.Contains(name, token) {
+		if !regexp.MustCompile(`\b` + regexp.QuoteMeta(token) + `\b`).MatchString(name) {
 			return false
 		}
 	}
