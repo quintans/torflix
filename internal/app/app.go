@@ -3,10 +3,16 @@ package app
 import (
 	"context"
 	"net/http"
+	"time"
 
 	"github.com/anacrolix/torrent"
 	"github.com/quintans/torflix/internal/lib/extractor"
 	"github.com/quintans/torflix/internal/model"
+)
+
+const (
+	Version = "0.1"
+	Name    = "torflix"
 )
 
 type Controller interface {
@@ -20,6 +26,10 @@ type Navigator interface {
 
 type EventBus interface {
 	Publish(m Message)
+	Error(msg string, args ...any)
+	Warn(msg string, args ...any)
+	Success(msg string, args ...any)
+	Info(msg string, args ...any)
 }
 
 type Message interface {
@@ -29,6 +39,7 @@ type Message interface {
 type AppView interface {
 	Show(AppData)
 	ShowNotification(evt Notify)
+	DisableAllTabsButSettings()
 	EnableTabs(bool)
 	Loading(Loading)
 }
@@ -36,11 +47,16 @@ type AppView interface {
 type AppData struct {
 	CacheDir      string
 	OpenSubtitles OpenSubtitles
+	Trakt         Trakt
 }
 
 type OpenSubtitles struct {
 	Username string
 	Password string
+}
+
+type Trakt struct {
+	Connected bool
 }
 
 type DownloadView interface {
@@ -112,6 +128,18 @@ type Extractor interface {
 }
 
 type Secrets interface {
-	GetOpenSubtitles() (string, error)
-	SetOpenSubtitles(value string) error
+	GetOpenSubtitles() (OpenSubtitlesSecret, error)
+	SetOpenSubtitles(value OpenSubtitlesSecret) error
+	GetTrackt() (TraktSecret, error)
+	SetTrakt(secret TraktSecret) error
+}
+
+type OpenSubtitlesSecret struct {
+	Password string `json:"password"`
+}
+
+type TraktSecret struct {
+	AccessToken  string    `json:"access_token"`
+	RefreshToken string    `json:"refresh_token"`
+	ExpiresAt    time.Time `json:"expires_at"`
 }

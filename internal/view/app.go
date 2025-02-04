@@ -23,6 +23,7 @@ type ShowViewer interface {
 type AppController interface {
 	ClearCache()
 	SetOpenSubtitles(username, password string)
+	TraktLogin(func())
 }
 
 type App struct {
@@ -63,24 +64,45 @@ func (v *App) SetController(controller AppController) {
 }
 
 func (v *App) Show(data app.AppData) {
+	sections := container.NewVBox()
+
+	v.addCacheSection(sections, data)
+	v.addSubtitlesSection(sections, data)
+	v.addTraktSection(sections, data)
+
+	v.tabs = container.NewAppTabs(
+		container.NewTabItemWithIcon("Search", theme.SearchIcon(), v.container),
+		container.NewTabItemWithIcon("Settings", theme.SettingsIcon(), sections),
+	)
+	v.tabs.SetTabLocation(container.TabLocationLeading)
+
+	anchor := mycontainer.NewAnchor()
+	anchor.Add(v.tabs, mycontainer.FillConstraint)
+	margin := float32(10)
+	anchor.Add(v.notification.Container(), mycontainer.AnchorConstraints{Top: &margin, Right: &margin})
+
+	v.window.SetContent(anchor.Container)
+}
+
+func (v *App) addCacheSection(sections *fyne.Container, data app.AppData) {
 	v.clear = widget.NewButton("Clear Cache", func() {
 		v.controller.ClearCache()
 	})
 	v.clear.Importance = widget.WarningImportance
 
-	sections := container.NewVBox(
-		widget.NewLabel("Cache"),
-		canvas.NewLine(color.Gray{128}),
-		container.NewHBox(
-			widget.NewForm(
-				widget.NewFormItem("Directory", widget.NewLabel(data.CacheDir)),
-			),
-			layout.NewSpacer(),
+	sections.Add(widget.NewLabel("Cache"))
+	sections.Add(canvas.NewLine(color.Gray{128}))
+	sections.Add(container.NewHBox(
+		widget.NewForm(
+			widget.NewFormItem("Directory", widget.NewLabel(data.CacheDir)),
 		),
-		container.NewHBox(v.clear, layout.NewSpacer()),
-		widget.NewSeparator(),
-	)
+		layout.NewSpacer(),
+	))
+	sections.Add(container.NewHBox(v.clear, layout.NewSpacer()))
+	sections.Add(widget.NewSeparator())
+}
 
+func (v *App) addSubtitlesSection(sections *fyne.Container, data app.AppData) {
 	sections.Add(widget.NewLabel("OpenSubtitles.com"))
 	sections.Add(canvas.NewLine(color.Gray{128}))
 
@@ -97,30 +119,44 @@ func (v *App) Show(data app.AppData) {
 		layout.NewSpacer(),
 	),
 	)
-	sections.Add(container.NewHBox(widget.NewButton("Change", func() {
+	bt := widget.NewButton("Change", func() {
 		v.controller.SetOpenSubtitles(usernameEntry.Text, passwordEntry.Text)
-	}), layout.NewSpacer()))
+	})
+	bt.Importance = widget.HighImportance
+	sections.Add(container.NewHBox(bt, layout.NewSpacer()))
 	sections.Add(widget.NewSeparator())
+}
 
-	v.tabs = container.NewAppTabs(
-		container.NewTabItemWithIcon("Search", theme.SearchIcon(), v.container),
-		container.NewTabItemWithIcon("Settings", theme.SettingsIcon(), sections),
-	)
-	v.tabs.SetTabLocation(container.TabLocationLeading)
+func (v *App) addTraktSection(sections *fyne.Container, data app.AppData) {
+	sections.Add(widget.NewLabel("Trakt.tv"))
+	sections.Add(canvas.NewLine(color.Gray{128}))
 
-	anchor := mycontainer.NewAnchor()
-	anchor.Add(v.tabs, mycontainer.FillConstraint)
-	margin := float32(10)
-	anchor.Add(v.notification.Container(), mycontainer.AnchorConstraints{Top: &margin, Right: &margin})
+	msg := widget.NewLabel("Logged In")
+	bt := widget.NewButton("ReLogin", nil)
 
-	v.window.SetContent(anchor.Container)
+	if !data.Trakt.Connected {
+		msg.SetText("Need to login")
+		bt.SetText("Login")
+	}
+	bt.Importance = widget.HighImportance
+	bt.OnTapped = func() {
+		bt.Disable()
+		msg.SetText("Waiting to accept code...")
+		v.controller.TraktLogin(func() {
+			msg.SetText("Logged In")
+		})
+	}
+
+	sections.Add(container.NewHBox(msg, bt, layout.NewSpacer()))
+	sections.Add(widget.NewSeparator())
+}
+
+func (v *App) DisableAllTabsButSettings() {
+	v.tabs.SelectIndex(len(v.tabs.Items) - 1)
+	v.EnableTabs(false)
 }
 
 func (v *App) EnableTabs(enable bool) {
-	if v.tabs == nil {
-		return
-	}
-
 	cur := v.tabs.SelectedIndex()
 
 	for k := range len(v.tabs.Items) {

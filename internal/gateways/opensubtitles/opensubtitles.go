@@ -16,17 +16,15 @@ import (
 
 func init() {
 	// if APIKey was not set on build, try to get it from the environment
-	if APIKey == "" {
-		APIKey = os.Getenv("OS_API_KEY")
+	if apiKey == "" {
+		apiKey = os.Getenv("OS_API_KEY")
 	}
 }
 
-var APIKey string
+var apiKey string
 
 const (
-	AppVersion = "0.1"
-	AppName    = "torflix"
-	BaseURL    = "https://api.opensubtitles.com/api/v1"
+	BaseURL = "https://api.opensubtitles.com/api/v1"
 )
 
 type LoginResponse struct {
@@ -64,8 +62,8 @@ func New(username, password string) *OpenSubtitles {
 		client: https.Client{
 			BaseURL: BaseURL,
 			Header: http.Header{
-				"Api-Key":      {APIKey},
-				"User-Agent":   {fmt.Sprintf("%s v%s", AppName, AppVersion)},
+				"Api-Key":      {apiKey},
+				"User-Agent":   {fmt.Sprintf("%s v%s", app.Name, app.Version)},
 				"Accept":       {"application/json"},
 				"Content-Type": {"application/json"},
 			},
@@ -122,6 +120,12 @@ func (o *OpenSubtitles) Search(query string, season, episode int, languages []st
 	}
 	if season > 0 {
 		params = append(params, Params{"season_number", strconv.Itoa(season)})
+	}
+
+	if season == 0 && episode == 0 {
+		params = append(params, Params{"type", "movie"})
+	} else {
+		params = append(params, Params{"type", "episode"})
 	}
 
 	slices.SortFunc(params, func(a, b Params) int {

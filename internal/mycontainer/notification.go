@@ -45,7 +45,7 @@ var (
 )
 
 func (nc *NotificationContainer) ShowSuccess(message string, opts ...Option) {
-	o := options{timeout: 3 * time.Second}
+	o := options{timeout: 2 * time.Second}
 	for _, opt := range opts {
 		opt(&o)
 	}

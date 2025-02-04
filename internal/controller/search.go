@@ -3,7 +3,6 @@ package controller
 import (
 	"cmp"
 	"fmt"
-	"log/slog"
 	"net/url"
 	"regexp"
 	"slices"
@@ -90,8 +89,7 @@ func (c Search) OnEnter() {
 
 	model, err := c.repo.LoadSearch()
 	if err != nil {
-		c.eventBus.Publish(app.NewNotifyError("Failed to load search: %s", err))
-		slog.Error("Failed to load search", "error", err)
+		logAndPub(c.eventBus, err, "Failed to load search")
 		return
 	}
 
@@ -143,7 +141,7 @@ func (c Search) Search(query string, selectedProviders []string) ([]components.M
 		}
 		dn := mag.DisplayName
 		if dn == "" {
-			c.eventBus.Publish(app.NewNotifyError("When using a magnet link, display name (dn) is required: %s", query))
+			c.eventBus.Error("When using a magnet link, display name (dn) is required: %s", query)
 			return nil, fmt.Errorf("when using a magnet link, display name (dn) is required: %s", query)
 		}
 		c.Download(cleanTorrentName(dn), query)
@@ -176,15 +174,13 @@ func (c Search) Search(query string, selectedProviders []string) ([]components.M
 
 				res, err := xtr.Extract(slug, query)
 				if err != nil {
-					c.eventBus.Publish(app.NewNotifyError("Failed scraping: %s", err))
-					slog.Error("Failed scraping", "error", err)
+					logAndPub(c.eventBus, err, "Failed scraping")
 					return
 				}
 
 				r, err := c.transformToMyResult(slug, res, qualities)
 				if err != nil {
-					c.eventBus.Publish(app.NewNotifyError("Failed converting seeds (slug=%s): %s", slug, err))
-					slog.Error("Failed converting seeds.", "slug", slug, "error", err)
+					logAndPub(c.eventBus, err, "Failed converting seeds", "slug", slug)
 					return
 				}
 				safeRes.Update(func(v []Result) []Result {
@@ -197,7 +193,7 @@ func (c Search) Search(query string, selectedProviders []string) ([]components.M
 
 	results := safeRes.Get()
 	if len(results) == 0 {
-		c.eventBus.Publish(app.NewNotifyInfo("No results found for query"))
+		c.eventBus.Info("No results found for query")
 		return nil, nil
 	}
 	results = slices.DeleteFunc(results, func(r Result) bool {
@@ -294,7 +290,7 @@ func (c Search) collapseByHash(results []Result) ([]Result, error) {
 			magnets := make([]string, 0, len(group))
 			for _, r := range group {
 				if r.Magnet == "" {
-					c.eventBus.Publish(app.NewNotifyWarn("Empty magnet link. name=%s, provider=%s", r.Name, r.Provider))
+					c.eventBus.Warn("Empty magnet link. name=%s, provider=%s", r.Name, r.Provider)
 					continue
 				}
 				magnets = append(magnets, r.Magnet)

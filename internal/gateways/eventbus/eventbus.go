@@ -18,3 +18,19 @@ func New(bus *bus.Bus) *EventBus {
 func (e *EventBus) Publish(msg app.Message) {
 	e.bus.Publish(msg)
 }
+
+func (e *EventBus) Error(msg string, args ...interface{}) {
+	e.bus.Publish(app.NewNotifyError(msg, args...))
+}
+
+func (e *EventBus) Warn(msg string, args ...interface{}) {
+	e.bus.Publish(app.NewNotifyWarn(msg, args...))
+}
+
+func (e *EventBus) Success(msg string, args ...interface{}) {
+	e.bus.Publish(app.NewNotifySuccess(msg, args...))
+}
+
+func (e *EventBus) Info(msg string, args ...interface{}) {
+	e.bus.Publish(app.NewNotifyInfo(msg, args...))
+}

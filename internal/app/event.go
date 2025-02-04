@@ -19,6 +19,14 @@ func (ClearCache) Kind() string {
 	return "clear_cache"
 }
 
+type EscapeHandler struct {
+	Handler func()
+}
+
+func (EscapeHandler) Kind() string {
+	return "escape_handler"
+}
+
 type NotifyType int
 
 const (

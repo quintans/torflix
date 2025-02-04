@@ -15,14 +15,13 @@ import (
 	"github.com/quintans/torflix/internal/gateways/repository"
 	"github.com/quintans/torflix/internal/gateways/secrets"
 	"github.com/quintans/torflix/internal/gateways/tor"
+	"github.com/quintans/torflix/internal/gateways/trakt"
 	"github.com/quintans/torflix/internal/lib/bus"
 	"github.com/quintans/torflix/internal/lib/extractor"
 	"github.com/quintans/torflix/internal/lib/navigator"
 	"github.com/quintans/torflix/internal/model"
 	"github.com/quintans/torflix/internal/view"
 )
-
-var APIKey string
 
 func main() {
 	path, err := os.UserCacheDir()
@@ -57,6 +56,11 @@ func main() {
 	a := app.New()
 	w := a.NewWindow("TorFlix")
 	w.Resize(fyne.NewSize(800, 600))
+	w.Canvas().SetOnTypedKey(func(k *fyne.KeyEvent) {
+		if k.Name == fyne.KeyEscape && escapeHandler != nil {
+			escapeHandler()
+		}
+	})
 
 	db := repository.NewDB(cacheDir)
 	if !db.Exists("search.json") {
@@ -138,6 +142,7 @@ func main() {
 		db,
 		sec,
 		cacheDir,
+		trakt.Auth{},
 	)
 
 	searchView.SetController(searchCtrl)
@@ -146,11 +151,12 @@ func main() {
 	downloadListView.SetController(downloadCtrl)
 	appView.SetController(appCtrl)
 
-	bus.Listen(b, appCtrl.OnNavigation)
-	bus.Listen(b, downloadCtrl.ClearCache)
-	bus.Listen(b, searchView.ClearCache)
-	bus.Listen(b, appCtrl.ShowNotification)
-	bus.Listen(b, appView.Loading)
+	bus.Register(b, appCtrl.OnNavigation)
+	bus.Register(b, downloadCtrl.ClearCache)
+	bus.Register(b, searchView.ClearCache)
+	bus.Register(b, appCtrl.ShowNotification)
+	bus.Register(b, appView.Loading)
+	bus.Register(b, onEscape)
 
 	appCtrl.OnEnter()
 	nav.Go(controller.SearchNavigation)
@@ -184,4 +190,10 @@ func torrentClientFactory(db *repository.DB, mediaDir, torrentFileDir string) fu
 
 		return tCli, nil
 	}
+}
+
+var escapeHandler func()
+
+func onEscape(e gapp.EscapeHandler) {
+	escapeHandler = e.Handler
 }

@@ -1,8 +1,10 @@
 package controller
 
 import (
-	"log/slog"
+	"fmt"
+	"time"
 
+	"github.com/pkg/browser"
 	"github.com/quintans/torflix/internal/app"
 	"github.com/quintans/torflix/internal/lib/navigator"
 )
@@ -23,6 +25,9 @@ type App struct {
 	repo               Repository
 	secrets            app.Secrets
 	cacheDir           string
+	libAuth            app.LibraryAuth
+	osEnabled          bool
+	traktEnabled       bool
 }
 
 func NewApp(
@@ -32,6 +37,7 @@ func NewApp(
 	repo Repository,
 	secrets app.Secrets,
 	cacheDir string,
+	libAuth app.LibraryAuth,
 ) *App {
 	return &App{
 		view:     view,
@@ -40,35 +46,58 @@ func NewApp(
 		repo:     repo,
 		secrets:  secrets,
 		cacheDir: cacheDir,
+		libAuth:  libAuth,
 	}
 }
 
 func (a *App) OnEnter() {
-	password, err := a.secrets.GetOpenSubtitles()
+	traktData, err := a.secrets.GetTrackt()
 	if err != nil {
-		a.eventBus.Publish(app.NewNotifyError("Failed to retrieve open subtitles password: %s", err))
-		slog.Error("Failed to retrieve open subtitles password", "error", err)
-	}
-	settings, err := a.repo.LoadSettings()
-	if err != nil {
-		a.eventBus.Publish(app.NewNotifyError("loading settings: %s", err))
-		slog.Error("Failed to load settings", "error", err)
+		logAndPub(a.eventBus, err, "Failed to retrieve Trakt data")
 	}
 
+	osSecret, err := a.secrets.GetOpenSubtitles()
+	if err != nil {
+		logAndPub(a.eventBus, err, "Failed to retrieve open subtitles password")
+	}
+
+	settings, err := a.repo.LoadSettings()
+	if err != nil {
+		logAndPub(a.eventBus, err, "Failed to load settings")
+	}
+
+	a.traktEnabled = traktData != app.TraktSecret{}
 	a.view.Show(app.AppData{
 		CacheDir: a.cacheDir,
 		OpenSubtitles: app.OpenSubtitles{
 			Username: settings.OpenSubtitles.Username,
-			Password: password,
+			Password: osSecret.Password,
+		},
+		Trakt: app.Trakt{
+			Connected: a.traktEnabled,
 		},
 	})
+
+	a.osEnabled = settings.OpenSubtitles.Username != "" && osSecret.Password != ""
+
+	if !a.traktEnabled || !a.osEnabled {
+		a.view.DisableAllTabsButSettings()
+	}
+}
+
+func (a *App) reenableTabs() {
+	if a.canReenableTabs() {
+		a.view.EnableTabs(true)
+	}
+}
+func (a *App) canReenableTabs() bool {
+	return a.traktEnabled && a.osEnabled
 }
 
 func (a *App) OnNavigation(vc navigator.To) {
 	ctrl, ok := a.targets[vc.Target]
 	if !ok {
-		a.eventBus.Publish(app.NewNotifyError("No controller found: %s", vc.Target))
-		slog.Error("No controller found", "controller", vc.Target)
+		logAndPub(a.eventBus, nil, "No controller found", "controler", vc.Target)
 		return
 	}
 
@@ -83,9 +112,9 @@ func (a *App) OnNavigation(vc navigator.To) {
 
 	a.oldChildController = ctrl
 
-	ctrl.OnEnter()
+	a.view.EnableTabs(vc.Target == SearchNavigation && a.canReenableTabs())
 
-	a.view.EnableTabs(vc.Target == SearchNavigation)
+	ctrl.OnEnter()
 }
 
 func (a *App) OnExit() {
@@ -102,29 +131,70 @@ func (a *App) ClearCache() {
 	a.eventBus.Publish(app.ClearCache{})
 }
 
-func (v *App) ShowNotification(evt app.Notify) {
-	v.view.ShowNotification(evt)
+func (a *App) ShowNotification(evt app.Notify) {
+	a.view.ShowNotification(evt)
 }
 
-func (v *App) SetOpenSubtitles(username, password string) {
-	err := v.secrets.SetOpenSubtitles(password)
+func (a *App) SetOpenSubtitles(username, password string) {
+	err := a.secrets.SetOpenSubtitles(app.OpenSubtitlesSecret{
+		Password: password,
+	})
 	if err != nil {
-		v.eventBus.Publish(app.NewNotifyError("Failed to set open subtitles password: %s", err))
-		slog.Error("Failed to set open subtitles password", "error", err)
+		logAndPub(a.eventBus, err, "Failed to set open subtitles password")
 	}
 
-	settings, err := v.repo.LoadSettings()
+	settings, err := a.repo.LoadSettings()
 	if err != nil {
-		v.eventBus.Publish(app.NewNotifyError("Failed to load settings: %s", err))
-		slog.Error("Failed to load settings", "error", err)
+		logAndPub(a.eventBus, err, "Failed to load settings")
 	}
 
 	settings.OpenSubtitles.Username = username
-	err = v.repo.SaveSettings(settings)
+	err = a.repo.SaveSettings(settings)
 	if err != nil {
-		v.eventBus.Publish(app.NewNotifyError("Failed to save settings: %s", err))
-		slog.Error("Failed to save settings", "error", err)
+		logAndPub(a.eventBus, err, "Failed to save settings")
 	}
 
-	v.eventBus.Publish(app.NewNotifySuccess("OpenSubtitles credentials saved"))
+	a.osEnabled = true
+	a.reenableTabs()
+
+	a.eventBus.Success("OpenSubtitles credentials saved")
+}
+
+func (a *App) TraktLogin(done func()) {
+	deviceCodeResponse, err := a.libAuth.GetDeviceCode()
+	if err != nil {
+		logAndPub(a.eventBus, err, "Failed to get device code")
+		return
+	}
+
+	url := fmt.Sprintf("%s/%s", deviceCodeResponse.VerificationURL, deviceCodeResponse.UserCode)
+	err = browser.OpenURL(url)
+	if err != nil {
+		logAndPub(a.eventBus, err, "Failed to open browser")
+		return
+	}
+
+	go func() {
+		token, err := a.libAuth.PollForToken(deviceCodeResponse)
+		if err != nil {
+			logAndPub(a.eventBus, err, "Failed to get token")
+			return
+		}
+
+		err = a.secrets.SetTrakt(app.TraktSecret{
+			AccessToken:  token.AccessToken,
+			RefreshToken: token.RefreshToken,
+			ExpiresAt:    time.Unix(int64(token.CreatedAt), 0).Add(time.Second * time.Duration(token.ExpiresIn)),
+		})
+		if err != nil {
+			logAndPub(a.eventBus, err, "Failed to save Trakt token")
+			return
+		}
+
+		a.traktEnabled = true
+		a.reenableTabs()
+
+		a.eventBus.Success("Trakt credentials saved")
+		done()
+	}()
 }

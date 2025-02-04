@@ -7,6 +7,7 @@ require (
 	github.com/anacrolix/torrent v1.58.0
 	github.com/dustin/go-humanize v1.0.1
 	github.com/jpillora/scraper v0.3.0
+	github.com/pkg/browser v0.0.0-20240102092130-5ac0b6a4141c
 	github.com/stretchr/testify v1.9.0
 	github.com/tidwall/gjson v1.6.8
 	github.com/zalando/go-keyring v0.2.6

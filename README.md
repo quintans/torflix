@@ -33,7 +33,7 @@ FYNE_SCALE=3 ./torflix
 Building only for the current platform:
 
 ```bash
-go build -ldflags "-X github.com/quintans/torflix/internal/gateways/opensubtitles.APIKey=$OS_API_KEY" -o ./builds/ .
+go build -ldflags "-X github.com/quintans/torflix/internal/gateways/opensubtitles.apiKey=$OS_API_KEY -X github.com/quintans/torflix/internal/gateways/trakt.clientID=$TRAKT_CLIENT_ID -X github.com/quintans/torflix/internal/gateways/trakt.clientSecret=$TRAKT_CLIENT_SECRET" -o ./builds/ .
 ```
 
 where `OS_API_KEY` is an environment variable with the opensubtitles apikey.

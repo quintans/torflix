@@ -126,8 +126,7 @@ func (c *Download) showList() {
 func (c *Download) OnEnter() {
 	err := c.onEnter()
 	if err != nil {
-		c.eventBus.Publish(app.NewNotifyError("Something went wrong: %s", err))
-		slog.Error("Something went wrong.", "error", err.Error())
+		logAndPub(c.eventBus, err, "Something went wrong")
 	}
 }
 
@@ -194,14 +193,14 @@ func (c *Download) PlayFile(findex int) {
 
 	err := c.playFile(file, true)
 	if err != nil {
-		c.eventBus.Publish(app.NewNotifyError("Failed to play file: %s", err.Error()))
-		slog.Error("Failed to play file.", "error", err.Error())
+		logAndPub(c.eventBus, err, "Failed to play file")
 		return
 	}
 }
 
 func (c *Download) playFile(file *torrent.File, fromList bool) error {
-	cleanedQuery, err := c.downloadSubtitles(file)
+	cleanedQuery, queryAndSeason, season, episode := c.getQueryComponents(file)
+	err := c.downloadSubtitles(file, cleanedQuery, queryAndSeason, season, episode)
 	if err != nil {
 		return fmt.Errorf("downloading subtitles: %w", err)
 	}
@@ -210,18 +209,14 @@ func (c *Download) playFile(file *torrent.File, fromList bool) error {
 	return c.downloadTorrentFile(file, cleanedQuery)
 }
 
-func (c *Download) downloadSubtitles(file *torrent.File) (string, error) {
-	c.eventBus.Publish(app.Loading{
-		Text: "Downloading subtitles",
-	})
-
+func (c *Download) getQueryComponents(file *torrent.File) (cleanedQuery, queryAndSeason string, season, episode int) {
 	model := c.repo.LoadDownload()
 	query := model.OriginalQuery()
 
-	_, season, episode := extractSeasonEpisode(file.DisplayPath(), false)
-	cleanedQuery, _, _ := extractSeasonEpisode(query, true)
+	_, season, episode = extractSeasonEpisode(file.DisplayPath(), false)
+	cleanedQuery, _, _ = extractSeasonEpisode(query, true)
 
-	queryAndSeason := strings.ReplaceAll(cleanedQuery, " ", "_")
+	queryAndSeason = strings.ReplaceAll(cleanedQuery, " ", "_")
 	if season > 0 {
 		if episode == 0 {
 			queryAndSeason = queryAndSeason + fmt.Sprintf("_%02d", season)
@@ -230,54 +225,61 @@ func (c *Download) downloadSubtitles(file *torrent.File) (string, error) {
 		}
 	}
 
+	return
+}
+
+func (c *Download) downloadSubtitles(file *torrent.File, cleanedQuery, queryAndSeason string, season, episode int) error {
+	c.eventBus.Publish(app.Loading{
+		Text: "Downloading subtitles",
+	})
+
 	settings, err := c.repo.LoadSettings()
 	if err != nil {
-		return "", fmt.Errorf("loading settings: %w", err)
+		return fmt.Errorf("loading settings: %w", err)
 	}
 	if settings.OpenSubtitles.Username == "" {
-		return queryAndSeason, nil
+		return nil
 	}
 
-	password, err := c.secrets.GetOpenSubtitles()
+	secret, err := c.secrets.GetOpenSubtitles()
 	if err != nil {
-		return "", fmt.Errorf("getting OpenSubtitles password: %w", err)
+		return fmt.Errorf("getting OpenSubtitles password: %w", err)
 	}
-	subtitlesClient := c.subtitlesClientFactory(settings.OpenSubtitles.Username, password)
+	subtitlesClient := c.subtitlesClientFactory(settings.OpenSubtitles.Username, secret.Password)
 
 	subsDir := filepath.Join(c.subtitlesRootDir, queryAndSeason)
 	c.subtitlesDir = subsDir
 	// if subtitles already exist we will use it
 	if _, err := os.Stat(subsDir); err == nil {
-		return queryAndSeason, nil
+		return nil
 	}
 
 	err = os.MkdirAll(subsDir, os.ModePerm)
 	if err != nil {
-		return "", fmt.Errorf("creating subtitles directory: %w", err)
+		return fmt.Errorf("creating subtitles directory: %w", err)
 	}
 
 	languages := settings.Languages()
 	subtitles, err := subtitlesClient.Search(cleanedQuery, season, episode, languages)
 	if err != nil {
-		return "", fmt.Errorf("searching subtitles: %w", err)
+		return fmt.Errorf("searching subtitles: %w", err)
 	}
 
 	if len(subtitles) == 0 {
 		c.subtitlesDir = ""
-		c.eventBus.Publish(app.NewNotifyInfo("No subtitles found"))
-		return queryAndSeason, nil
+		c.eventBus.Info("No subtitles found")
+		return nil
 	}
 
 	token, err := subtitlesClient.Login()
 	if err != nil {
-		return "", fmt.Errorf("login: %w", err)
+		return fmt.Errorf("login: %w", err)
 	}
 
 	defer func() {
 		err := subtitlesClient.Logout(token)
 		if err != nil {
-			c.eventBus.Publish(app.NewNotifyError("Failed to logout: %s", err))
-			slog.Error("Failed to logout", "error", err)
+			logAndPub(c.eventBus, err, "Failed to logout")
 		}
 	}()
 
@@ -289,25 +291,52 @@ func (c *Download) downloadSubtitles(file *torrent.File) (string, error) {
 		)
 	})
 
-	for k, sub := range subtitles {
-		download, err := subtitlesClient.Download(token, sub.FileID)
-		if err != nil {
-			return "", fmt.Errorf("downloading subtitle: %w", err)
+	qry := strings.ToLower(cleanedQuery)
+	tokens := strings.Split(qry, " ")
+
+	downloaded := 1
+	for _, sub := range subtitles {
+		if !wordMatch(tokens, sub.Filename) {
+			continue
 		}
 
-		subPath := filepath.Join(subsDir, insertLang(k, download.Filename, sub.Language))
+		download, err := subtitlesClient.Download(token, sub.FileID)
+		if err != nil {
+			slog.Error("Failed to download subtitle", "error", err)
+			continue
+		}
+
+		subPath := filepath.Join(subsDir, insertLang(downloaded, download.Filename, sub.Language))
 		err = saveSubtitleFileRetry(download.Link, subPath)
 		if err != nil {
-			return "", fmt.Errorf("saving subtitle file: %w", err)
+			slog.Error("Failed to save subtitle file", "link", download.Link, "error", err)
+			continue
+		}
+
+		downloaded++
+		// Download only the first 10 subtitles
+		if downloaded > 10 {
+			break
 		}
 	}
 
-	return queryAndSeason, nil
+	return nil
+}
+
+func wordMatch(tokens []string, name string) bool {
+	name = strings.ToLower(name)
+	for _, token := range tokens {
+		if !strings.Contains(name, token) {
+			return false
+		}
+	}
+	return true
 }
 
 func insertLang(index int, filename, language string) string {
 	ext := filepath.Ext(filename)
-	return fmt.Sprintf("%02d-subtitle.%s%s", index, language, ext)
+	name := strings.TrimSuffix(filename, ext)
+	return fmt.Sprintf("%02d-%s.%s%s", index, name, language, ext)
 }
 
 // saveSubtitleFileRetry downloads the subtitle file from the given URL and saves it locally
@@ -391,8 +420,7 @@ func (c *Download) downloadTorrentFile(file *torrent.File, filename string) erro
 
 	go func() {
 		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-			c.eventBus.Publish(app.NewNotifyError("Failed to serve file: %s", err))
-			slog.Error("Failed to serve file", "error", err)
+			logAndPub(c.eventBus, err, "Failed to serve file")
 		}
 	}()
 
@@ -403,8 +431,7 @@ func (c *Download) downloadTorrentFile(file *torrent.File, filename string) erro
 			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 			defer cancel()
 			if err := server.Shutdown(ctx); err != nil {
-				c.eventBus.Publish(app.NewNotifyError("Failed to shutdown server: %s", err))
-				slog.Error("Server Shutdown Failed.", "error", err)
+				logAndPub(c.eventBus, err, "Failed to shutdown server")
 			}
 		}()
 	}
@@ -420,8 +447,7 @@ func (c *Download) Play() {
 
 	settings, err := c.repo.LoadSettings()
 	if err != nil {
-		c.eventBus.Publish(app.NewNotifyError("Failed to load settings on Play: %s", err))
-		slog.Error("Failed to load settings on Play.", "error", err)
+		logAndPub(c.eventBus, err, "Failed to load settings on Play")
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -440,8 +466,7 @@ func (c *Download) Play() {
 
 		err := c.videoPlayer.Open(ctx, settings.Player(), fmt.Sprintf(localhost, settings.Port(), c.servingFile), c.subtitlesDir)
 		if err != nil {
-			c.eventBus.Publish(app.NewNotifyError("Failed to open player: %s", err))
-			slog.Error("Failed to open player.", "error", err)
+			logAndPub(c.eventBus, err, "Failed to open player")
 		}
 
 		c.downloadView.EnablePlay()
@@ -531,19 +556,16 @@ func parseInt(input string) int {
 func (c *Download) ClearCache(_ app.ClearCache) {
 	err := os.RemoveAll(c.mediaDir)
 	if err != nil {
-		c.eventBus.Publish(app.NewNotifyError("Failed to clear media cache: %s", err))
-		slog.Error("Failed to clear media cache.", "error", err)
+		logAndPub(c.eventBus, err, "Failed to clear media cache")
 	}
 	err = os.RemoveAll(c.torrentsDir)
 	if err != nil {
-		c.eventBus.Publish(app.NewNotifyError("Failed to clear torrent cache: %s", err))
-		slog.Error("Failed to clear torrent cache.", "error", err)
+		logAndPub(c.eventBus, err, "Failed to clear torrent cache")
 	}
 	err = os.RemoveAll(c.subtitlesRootDir)
 	if err != nil {
-		c.eventBus.Publish(app.NewNotifyError("Failed to clear subtitles cache: %s", err))
-		slog.Error("Failed to clear subtitles cache.", "error", err)
+		logAndPub(c.eventBus, err, "Failed to clear subtitles cache")
 	}
 
-	c.eventBus.Publish(app.NewNotifySuccess("Cache cleared"))
+	c.eventBus.Success("Cache cleared")
 }
