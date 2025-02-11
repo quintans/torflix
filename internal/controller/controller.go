@@ -32,10 +32,10 @@ func logAndPub(eb app.EventBus, err error, msg string, args ...any) {
 
 	if err != nil {
 		eb.Error("%s: %s", s, err)
-		slog.Error(msg, append(args, "error", err))
+		slog.Error(msg, append(args, "error", err)...)
 		return
 	}
 
 	eb.Error(s)
-	slog.Error(msg, args)
+	slog.Error(msg, args...)
 }
