@@ -141,10 +141,11 @@ func (c Search) Search(query string, selectedProviders []string) ([]components.M
 		}
 		dn := mag.DisplayName
 		if dn == "" {
-			c.eventBus.Error("When using a magnet link, display name (dn) is required: %s", query)
-			return nil, fmt.Errorf("when using a magnet link, display name (dn) is required: %s", query)
+			dn = fmt.Sprintf("Torrent-%s", mag.Hash)
+		} else {
+			dn = cleanTorrentName(dn)
 		}
-		c.Download(cleanTorrentName(dn), query)
+		c.Download(dn, query)
 		return nil, nil
 	}
 

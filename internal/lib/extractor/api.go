@@ -102,8 +102,8 @@ func transform(endpoint apiConfig, data string) ([]Result, error) {
 	}
 
 	values := gjson.Parse(data).Array()
-	res := make([]Result, len(values))
-	for k, value := range values {
+	res := make([]Result, 0, len(values))
+	for _, value := range values {
 		v := apiFieldsResult{
 			Name:   value.Get(apiRes.Name).String(),
 			Seeds:  value.Get(apiRes.Seeds).String(),
@@ -112,6 +112,12 @@ func transform(endpoint apiConfig, data string) ([]Result, error) {
 			SSize:  value.Get(apiRes.SSize).String(),
 			HSize:  value.Get(apiRes.HSize).String(),
 			Size:   value.Get(apiRes.Size).Uint(),
+		}
+
+		// Skip if seeds are 0
+		// thepiratebay returns a record with 0 seeds when there are no results
+		if v.Seeds == "0" {
+			continue
 		}
 
 		switch {
@@ -129,12 +135,12 @@ func transform(endpoint apiConfig, data string) ([]Result, error) {
 			v.Magnet = fmt.Sprintf("magnet:?xt=urn:btih:%s&dn=%s", v.Hash, url.PathEscape(v.Name))
 		}
 
-		res[k] = Result{
+		res = append(res, Result{
 			Name:   v.Name,
 			Size:   v.HSize,
 			Seeds:  v.Seeds,
 			Magnet: v.Magnet,
-		}
+		})
 	}
 
 	return res, nil
