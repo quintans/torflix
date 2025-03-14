@@ -16,6 +16,7 @@ import (
 	"github.com/quintans/torflix/internal/app"
 	"github.com/quintans/torflix/internal/lib/files"
 	"github.com/quintans/torflix/internal/lib/magnet"
+	"golang.org/x/time/rate"
 )
 
 var isHTTP = regexp.MustCompile(`^https?:\/\/`)
@@ -44,6 +45,7 @@ type ClientConfig struct {
 	MaxConnections       int
 	DownloadAheadPercent int64 // Prioritize first % of the file.
 	ValidMediaExtensions []string
+	UploadRate           int // bytes per second
 }
 
 // NewTorrentClient creates a new torrent client based on a magnet or a torrent file.
@@ -83,6 +85,7 @@ func NewTorrentClient(cfg ClientConfig, torrentDir, mediaDir string, resource st
 	torrentConfig.NoUpload = !cfg.Seed
 	torrentConfig.DisableTCP = !cfg.TCP
 	torrentConfig.ListenPort = cfg.TorrentPort
+	torrentConfig.UploadRateLimiter = rate.NewLimiter(rate.Limit(cfg.UploadRate), cfg.UploadRate)
 
 	// Create client.
 	c, err = torrent.NewClient(torrentConfig)

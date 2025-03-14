@@ -50,6 +50,7 @@ type Settings struct {
 	htmlDetailsSearchConfig []byte
 	apiSearchConfig         []byte
 	qualities               []string
+	uploadRate              int
 	OpenSubtitles           OpenSubtitles
 }
 
@@ -175,6 +176,14 @@ func (m *Settings) SetQualities(qualities []string) {
 	m.qualities = qualities
 }
 
+func (m *Settings) UploadRate() int {
+	return m.uploadRate
+}
+
+func (m *Settings) SetUploadRate(uploadRate int) {
+	m.uploadRate = uploadRate
+}
+
 func (m *Settings) Hydrate(
 	torrentPort int,
 	port int,
@@ -188,6 +197,7 @@ func (m *Settings) Hydrate(
 	detailsSearchConfig []byte,
 	apiSearchConfig []byte,
 	qualities []string,
+	uploadRate int,
 	OpenSubtitles OpenSubtitles,
 ) {
 	m.torrentPort = torrentPort
@@ -202,6 +212,7 @@ func (m *Settings) Hydrate(
 	m.htmlDetailsSearchConfig = detailsSearchConfig
 	m.apiSearchConfig = apiSearchConfig
 	m.qualities = qualities
+	m.uploadRate = uploadRate
 	m.OpenSubtitles = OpenSubtitles
 }
 

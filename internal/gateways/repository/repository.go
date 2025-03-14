@@ -84,6 +84,7 @@ type Settings struct {
 	ApiSearchConfig         json.RawMessage     `json:"apiSearchConfig"`
 	Qualities               []string            `json:"qualities"`
 	OpenSubtitles           model.OpenSubtitles `json:"openSubtitles"`
+	UploadRate              int                 `json:"uploadRate"`
 }
 
 func (d *DB) SaveSettings(settings *model.Settings) error {
@@ -99,6 +100,7 @@ func (d *DB) SaveSettings(settings *model.Settings) error {
 		HtmlDetailsSearchConfig: settings.HtmlDetailsSearchConfig(),
 		ApiSearchConfig:         settings.ApiSearchConfig(),
 		Qualities:               settings.Qualities(),
+		UploadRate:              settings.UploadRate(),
 		OpenSubtitles:           settings.OpenSubtitles,
 	})
 	if err != nil {
@@ -137,6 +139,7 @@ func (d *DB) LoadSettings() (*model.Settings, error) {
 			settings.HtmlDetailsSearchConfig,
 			settings.ApiSearchConfig,
 			settings.Qualities,
+			settings.UploadRate,
 			settings.OpenSubtitles,
 		)
 
