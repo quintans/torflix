@@ -85,7 +85,9 @@ func NewTorrentClient(cfg ClientConfig, torrentDir, mediaDir string, resource st
 	torrentConfig.NoUpload = !cfg.Seed
 	torrentConfig.DisableTCP = !cfg.TCP
 	torrentConfig.ListenPort = cfg.TorrentPort
-	torrentConfig.UploadRateLimiter = rate.NewLimiter(rate.Limit(cfg.UploadRate), cfg.UploadRate)
+	if cfg.UploadRate > 0 {
+		torrentConfig.UploadRateLimiter = rate.NewLimiter(rate.Limit(cfg.UploadRate), cfg.UploadRate)
+	}
 
 	// Create client.
 	c, err = torrent.NewClient(torrentConfig)
@@ -181,7 +183,6 @@ func (c *TorrentClient) Play(file *torrent.File) {
 	c.torrentConfig.NoUpload = !c.Config.Seed
 
 	c.File = file
-	c.File.SetPriority(torrent.PiecePriorityReadahead)
 
 	t := c.Torrent
 	// downloading only the pieces we need

@@ -395,6 +395,7 @@ func (c *Download) downloadTorrentFile(file *torrent.File, filename string) erro
 
 	ctx, cancel := context.WithCancel(context.Background())
 	go func() {
+		const interval = 2
 		fn := func() {
 			stats := c.client.Stats()
 			if stats.Pieces == nil || stats.ReadyForPlayback {
@@ -402,11 +403,15 @@ func (c *Download) downloadTorrentFile(file *torrent.File, filename string) erro
 			} else {
 				stats.Stream = "Not ready for playback"
 			}
+			// normalize speed
+			stats.DownloadSpeed = stats.DownloadSpeed / interval
+			stats.UploadSpeed = stats.UploadSpeed / interval
+
 			c.downloadView.SetStats(stats)
 		}
 		fn()
 
-		ticker := time.NewTicker(time.Second)
+		ticker := time.NewTicker(interval * time.Second)
 		defer ticker.Stop()
 		for {
 			select {
