@@ -92,7 +92,7 @@ func (v *Download) Show(torName string, subFile string) {
 	stream.Alignment = fyne.TextAlignTrailing
 	widgets = append(widgets, stream, v.stream)
 
-	v.tracker = components.NewPieceTracker(1)
+	v.tracker = components.NewPieceTracker(nil)
 
 	content := container.NewVBox(
 		container.New(layout.NewFormLayout(), widgets...),

@@ -14,9 +14,9 @@ type PieceTracker struct {
 	pieces []bool
 }
 
-func NewPieceTracker(totalPieces int) *PieceTracker {
+func NewPieceTracker(pieces []bool) *PieceTracker {
 	w := &PieceTracker{
-		pieces: make([]bool, totalPieces),
+		pieces: pieces,
 	}
 	w.ExtendBaseWidget(w)
 	return w
@@ -38,36 +38,6 @@ func (w *PieceTracker) SetPieces(pieces []bool) {
 	w.Refresh()
 }
 
-func (w *PieceTracker) MarkPieces(indexes ...int) {
-	var changed bool
-	for _, index := range indexes { // corrected the loop for indexes
-		if index >= 0 && index < len(w.pieces) {
-			if !w.pieces[index] {
-				w.pieces[index] = true
-				changed = true
-			}
-		}
-	}
-	if changed {
-		w.Refresh()
-	}
-}
-
-func (w *PieceTracker) UnmarkPieces(indexes ...int) {
-	var changed bool
-	for _, index := range indexes {
-		if index >= 0 && index < len(w.pieces) {
-			if w.pieces[index] {
-				w.pieces[index] = false
-				changed = true
-			}
-		}
-	}
-	if changed {
-		w.Refresh()
-	}
-}
-
 type pieceWidgetRenderer struct {
 	widget     *PieceTracker
 	background *canvas.Rectangle
@@ -76,7 +46,14 @@ type pieceWidgetRenderer struct {
 
 func (r *pieceWidgetRenderer) Layout(size fyne.Size) {
 	r.background.Resize(size)
-	barWidth := size.Width / float32(len(r.widget.pieces))
+
+	totalPieces := len(r.widget.pieces)
+	var barWidth float32
+	if totalPieces > 0 {
+		barWidth = size.Width / float32(totalPieces)
+	} else {
+		barWidth = size.Width
+	}
 
 	// Remove old bars before creating new ones
 	if len(r.objects) > 1 {
@@ -84,7 +61,6 @@ func (r *pieceWidgetRenderer) Layout(size fyne.Size) {
 	}
 
 	start := -1
-	totalPieces := len(r.widget.pieces)
 	for i := 0; i < totalPieces; i++ {
 		if r.widget.pieces[i] {
 			if start == -1 {

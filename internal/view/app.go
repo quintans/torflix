@@ -11,7 +11,6 @@ import (
 	"fyne.io/fyne/v2/theme"
 	"fyne.io/fyne/v2/widget"
 	"github.com/quintans/torflix/internal/app"
-	aapp "github.com/quintans/torflix/internal/app"
 	"github.com/quintans/torflix/internal/components"
 	"github.com/quintans/torflix/internal/mycontainer"
 )
@@ -178,15 +177,15 @@ func (v *App) ShowView(c fyne.CanvasObject) {
 	v.container.Refresh()
 }
 
-func (v *App) ShowNotification(evt aapp.Notify) {
+func (v *App) ShowNotification(evt app.Notify) {
 	switch evt.Type {
-	case aapp.NotifyError:
+	case app.NotifyError:
 		v.notification.ShowError(evt.Message)
-	case aapp.NotifyWarn:
+	case app.NotifyWarn:
 		v.notification.ShowWarning(evt.Message)
-	case aapp.NotifyInfo:
+	case app.NotifyInfo:
 		v.notification.ShowInfo(evt.Message)
-	case aapp.NotifySuccess:
+	case app.NotifySuccess:
 		v.notification.ShowSuccess(evt.Message)
 	}
 }
