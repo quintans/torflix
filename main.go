@@ -179,6 +179,7 @@ func torrentClientFactory(db *repository.DB, mediaDir, torrentFileDir string) fu
 				TCP:                  settings.TCP(),
 				DownloadAheadPercent: 1,
 				ValidMediaExtensions: controller.MediaExtensions,
+				UploadRate:           settings.UploadRate(),
 			},
 			torrentFileDir,
 			mediaDir,
