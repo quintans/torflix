@@ -11,6 +11,7 @@ import (
 	"fyne.io/fyne/v2/widget"
 	"github.com/dustin/go-humanize"
 	"github.com/quintans/torflix/internal/app"
+	"github.com/quintans/torflix/internal/components"
 )
 
 type DownloadController interface {
@@ -28,6 +29,7 @@ type Download struct {
 	downloadSpeed *widget.Label
 	uploadSpeed   *widget.Label
 	seeders       *widget.Label
+	tracker       *components.PieceTracker
 
 	play *widget.Button
 }
@@ -90,8 +92,11 @@ func (v *Download) Show(torName string, subFile string) {
 	stream.Alignment = fyne.TextAlignTrailing
 	widgets = append(widgets, stream, v.stream)
 
+	v.tracker = components.NewPieceTracker(1)
+
 	content := container.NewVBox(
 		container.New(layout.NewFormLayout(), widgets...),
+		v.tracker,
 		container.NewHBox(
 			layout.NewSpacer(),
 			v.play,
@@ -113,31 +118,34 @@ func (v *Download) OnExit() {
 	v.downloadSpeed = nil
 	v.uploadSpeed = nil
 	v.seeders = nil
+	v.tracker = nil
 
 	v.play = nil
 }
 
-func (c *Download) SetStats(stats app.Stats) {
-	if stats == (app.Stats{}) {
+func (v *Download) SetStats(stats app.Stats) {
+	if stats.Pieces == nil {
 		return
 	}
 
-	c.stream.SetText(stats.Stream)
+	v.stream.SetText(stats.Stream)
 
 	if stats.Size > 0 {
 		percentage := float64(stats.Complete) / float64(stats.Size) * 100
 		complete := humanize.Bytes(uint64(stats.Complete))
 		size := humanize.Bytes(uint64(stats.Size))
-		c.progress.SetText(fmt.Sprintf("%s / %s  %.2f%%", complete, size, percentage))
+		v.progress.SetText(fmt.Sprintf("%s / %s  %.2f%%", complete, size, percentage))
 	}
 
 	if stats.Done {
-		c.downloadSpeed.SetText("Download complete")
+		v.downloadSpeed.SetText("Download complete")
 	} else {
-		c.downloadSpeed.SetText(humanize.Bytes(uint64(stats.DownloadSpeed)) + "/s")
+		v.downloadSpeed.SetText(humanize.Bytes(uint64(stats.DownloadSpeed)) + "/s")
 	}
-	c.uploadSpeed.SetText(humanize.Bytes(uint64(stats.UploadSpeed)) + "/s")
-	c.seeders.SetText(fmt.Sprintf("%d", stats.Seeders))
+	v.uploadSpeed.SetText(humanize.Bytes(uint64(stats.UploadSpeed)) + "/s")
+	v.seeders.SetText(fmt.Sprintf("%d", stats.Seeders))
+
+	v.tracker.SetPieces(stats.Pieces)
 }
 
 func (v *Download) EnablePlay() {

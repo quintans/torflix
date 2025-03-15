@@ -181,6 +181,7 @@ func (c *TorrentClient) Play(file *torrent.File) {
 	c.torrentConfig.NoUpload = !c.Config.Seed
 
 	c.File = file
+	c.File.SetPriority(torrent.PiecePriorityReadahead)
 
 	t := c.Torrent
 	// downloading only the pieces we need
@@ -234,6 +235,12 @@ func (c *TorrentClient) Stats() app.Stats {
 	bytesWrittenData := tStats.BytesWrittenData
 	currentUpload := (&bytesWrittenData).Int64()
 
+	fps := c.File.State()
+	pieces := make([]bool, len(fps))
+	for i, fp := range fps {
+		pieces[i] = fp.Complete
+	}
+
 	stats := app.Stats{
 		Complete:      currentProgress,
 		Size:          size,
@@ -241,6 +248,7 @@ func (c *TorrentClient) Stats() app.Stats {
 		UploadSpeed:   currentUpload - c.Uploaded,
 		Seeders:       tStats.ConnectedSeeders,
 		Done:          currentProgress >= size,
+		Pieces:        pieces,
 	}
 
 	c.Progress = currentProgress

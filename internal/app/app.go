@@ -85,6 +85,7 @@ type Stats struct {
 	UploadSpeed      int64
 	Seeders          int
 	Done             bool
+	Pieces           []bool
 }
 
 type TorrentClient interface {

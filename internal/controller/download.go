@@ -397,7 +397,7 @@ func (c *Download) downloadTorrentFile(file *torrent.File, filename string) erro
 	go func() {
 		fn := func() {
 			stats := c.client.Stats()
-			if stats == (app.Stats{}) || stats.ReadyForPlayback {
+			if stats.Pieces == nil || stats.ReadyForPlayback {
 				stats.Stream = fmt.Sprintf(localhost, settings.Port(), c.servingFile)
 			} else {
 				stats.Stream = "Not ready for playback"
