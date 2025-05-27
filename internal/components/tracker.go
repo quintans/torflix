@@ -61,7 +61,7 @@ func (r *pieceWidgetRenderer) Layout(size fyne.Size) {
 	}
 
 	start := -1
-	for i := 0; i < totalPieces; i++ {
+	for i := range totalPieces {
 		if r.widget.pieces[i] {
 			if start == -1 {
 				start = i
@@ -83,11 +83,10 @@ func (r *pieceWidgetRenderer) Layout(size fyne.Size) {
 		r.objects = append(r.objects, bar)
 	}
 
-	//Layout objects:
+	// Layout objects:
 	for _, obj := range r.objects {
 		obj.Refresh()
 	}
-
 }
 
 func (r *pieceWidgetRenderer) MinSize() fyne.Size {
