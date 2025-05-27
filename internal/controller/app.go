@@ -1,6 +1,10 @@
 package controller
 
 import (
+	"fmt"
+	"time"
+
+	"github.com/pkg/browser"
 	"github.com/quintans/torflix/internal/app"
 	"github.com/quintans/torflix/internal/lib/navigator"
 )
@@ -21,6 +25,7 @@ type App struct {
 	repo               Repository
 	secrets            app.Secrets
 	cacheDir           string
+	libAuth            app.LibraryAuth
 	osEnabled          bool
 }
 
@@ -31,6 +36,7 @@ func NewApp(
 	repo Repository,
 	secrets app.Secrets,
 	cacheDir string,
+	libAuth app.LibraryAuth,
 ) *App {
 	return &App{
 		view:     view,
@@ -39,6 +45,7 @@ func NewApp(
 		repo:     repo,
 		secrets:  secrets,
 		cacheDir: cacheDir,
+		libAuth:  libAuth,
 	}
 }
 
@@ -73,7 +80,6 @@ func (a *App) reenableTabs() {
 		a.view.EnableTabs(true)
 	}
 }
-
 func (a *App) canReenableTabs() bool {
 	return a.osEnabled
 }
@@ -142,4 +148,43 @@ func (a *App) SetOpenSubtitles(username, password string) {
 	a.reenableTabs()
 
 	a.eventBus.Success("OpenSubtitles credentials saved")
+}
+
+func (a *App) TraktLogin(done func()) {
+	deviceCodeResponse, err := a.libAuth.GetDeviceCode()
+	if err != nil {
+		logAndPub(a.eventBus, err, "Failed to get device code")
+		return
+	}
+
+	url := fmt.Sprintf("%s/%s", deviceCodeResponse.VerificationURL, deviceCodeResponse.UserCode)
+	err = browser.OpenURL(url)
+	if err != nil {
+		logAndPub(a.eventBus, err, "Failed to open browser")
+		return
+	}
+
+	go func() {
+		token, err := a.libAuth.PollForToken(deviceCodeResponse)
+		if err != nil {
+			logAndPub(a.eventBus, err, "Failed to get token")
+			return
+		}
+
+		err = a.secrets.SetTrakt(app.TraktSecret{
+			AccessToken:  token.AccessToken,
+			RefreshToken: token.RefreshToken,
+			ExpiresAt:    time.Unix(int64(token.CreatedAt), 0).Add(time.Second * time.Duration(token.ExpiresIn)),
+		})
+		if err != nil {
+			logAndPub(a.eventBus, err, "Failed to save Trakt token")
+			return
+		}
+
+		a.traktEnabled = true
+		a.reenableTabs()
+
+		a.eventBus.Success("Trakt credentials saved")
+		done()
+	}()
 }

@@ -15,6 +15,7 @@ import (
 	"github.com/quintans/torflix/internal/gateways/repository"
 	"github.com/quintans/torflix/internal/gateways/secrets"
 	"github.com/quintans/torflix/internal/gateways/tor"
+	"github.com/quintans/torflix/internal/gateways/trakt"
 	"github.com/quintans/torflix/internal/lib/bus"
 	"github.com/quintans/torflix/internal/lib/extractor"
 	"github.com/quintans/torflix/internal/lib/navigator"
@@ -141,6 +142,7 @@ func main() {
 		db,
 		sec,
 		cacheDir,
+		trakt.Auth{},
 	)
 
 	searchView.SetController(searchCtrl)
