@@ -23,13 +23,17 @@ import (
 )
 
 func main() {
-	path, err := os.UserCacheDir()
-	if err != nil {
-		panic(err)
+	cacheDir := os.Getenv("TORFLIX_CACHE_DIR")
+	if cacheDir == "" {
+		path, err := os.UserCacheDir()
+		if err != nil {
+			panic(err)
+		}
+
+		cacheDir = filepath.Join(path, "torflix")
 	}
 
-	cacheDir := filepath.Join(path, "torflix")
-	err = os.MkdirAll(cacheDir, os.ModePerm)
+	err := os.MkdirAll(cacheDir, os.ModePerm)
 	if err != nil {
 		panic(err)
 	}

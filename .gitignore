@@ -5,3 +5,4 @@ builds
 .DS_Store
 
 cmd/test
+Taskfile.yaml

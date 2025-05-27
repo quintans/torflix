@@ -27,6 +27,15 @@ If you want to scale use:
 FYNE_SCALE=3 ./torflix
 ```
 
+torflix will create a cache directory in:
+- On Unix systems, in $XDG_CACHE_HOME/torflix as specified by
+https://specifications.freedesktop.org/basedir-spec/basedir-spec-latest.html if
+non-empty, else $HOME/.cache/torflix.
+- On Darwin, in $HOME/Library/Caches/torflix.
+- On Windows, in returns %LocalAppData%\torflix.
+
+You can override the cache directory by specifying $TORFLIX_CACHE_DIR
+
 ## Credits
 - [go-peerflix](https://github.com/Sioro-Neoku/go-peerflix) for the awesome example provided
 - [torrent](https://github.com/anacrolix/torrent) for the torrent client

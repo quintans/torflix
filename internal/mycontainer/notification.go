@@ -124,9 +124,7 @@ func (nc *NotificationContainer) show(title, message string, bgColor, fgColor co
 			}).Start()
 			<-done
 			nc.container.Remove(card)
-			fyne.DoAndWait(func() {
-				nc.container.Refresh()
-			})
+			nc.container.Refresh()
 		}()
 	}
 }

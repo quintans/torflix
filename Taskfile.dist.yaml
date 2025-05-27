@@ -1,0 +1,7 @@
+version: "3"
+
+tasks:
+  build:
+    desc: build
+    cmds:
+      - go build -ldflags "-X github.com/quintans/torflix/internal/gateways/opensubtitles.apiKey=$OS_API_KEY" -o ./builds/ .
