@@ -3,6 +3,7 @@ package app
 import (
 	"context"
 	"net/http"
+	"time"
 
 	"github.com/anacrolix/torrent"
 	"github.com/quintans/torflix/internal/lib/extractor"
@@ -46,11 +47,16 @@ type AppView interface {
 type AppData struct {
 	CacheDir      string
 	OpenSubtitles OpenSubtitles
+	Trakt         Trakt
 }
 
 type OpenSubtitles struct {
 	Username string
 	Password string
+}
+
+type Trakt struct {
+	Connected bool
 }
 
 type DownloadView interface {
@@ -125,8 +131,16 @@ type Extractor interface {
 type Secrets interface {
 	GetOpenSubtitles() (OpenSubtitlesSecret, error)
 	SetOpenSubtitles(value OpenSubtitlesSecret) error
+	GetTrackt() (TraktSecret, error)
+	SetTrakt(secret TraktSecret) error
 }
 
 type OpenSubtitlesSecret struct {
 	Password string `json:"password"`
+}
+
+type TraktSecret struct {
+	AccessToken  string    `json:"access_token"`
+	RefreshToken string    `json:"refresh_token"`
+	ExpiresAt    time.Time `json:"expires_at"`
 }

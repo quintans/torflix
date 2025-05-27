@@ -27,6 +27,7 @@ type App struct {
 	cacheDir           string
 	libAuth            app.LibraryAuth
 	osEnabled          bool
+	traktEnabled       bool
 }
 
 func NewApp(
@@ -50,6 +51,11 @@ func NewApp(
 }
 
 func (a *App) OnEnter() {
+	traktData, err := a.secrets.GetTrackt()
+	if err != nil {
+		logAndPub(a.eventBus, err, "Failed to retrieve Trakt data")
+	}
+
 	osSecret, err := a.secrets.GetOpenSubtitles()
 	if err != nil {
 		logAndPub(a.eventBus, err, "Failed to retrieve open subtitles password")
@@ -60,17 +66,21 @@ func (a *App) OnEnter() {
 		logAndPub(a.eventBus, err, "Failed to load settings")
 	}
 
+	a.traktEnabled = traktData != app.TraktSecret{}
 	a.view.Show(app.AppData{
 		CacheDir: a.cacheDir,
 		OpenSubtitles: app.OpenSubtitles{
 			Username: settings.OpenSubtitles.Username,
 			Password: osSecret.Password,
 		},
+		Trakt: app.Trakt{
+			Connected: a.traktEnabled,
+		},
 	})
 
 	a.osEnabled = settings.OpenSubtitles.Username != "" && osSecret.Password != ""
 
-	if !a.osEnabled {
+	if !a.traktEnabled || !a.osEnabled {
 		a.view.DisableAllTabsButSettings()
 	}
 }
@@ -81,7 +91,7 @@ func (a *App) reenableTabs() {
 	}
 }
 func (a *App) canReenableTabs() bool {
-	return a.osEnabled
+	return a.traktEnabled && a.osEnabled
 }
 
 func (a *App) OnNavigation(vc navigator.To) {

@@ -45,3 +45,35 @@ func (s *Secrets) SetOpenSubtitles(value app.OpenSubtitlesSecret) error {
 
 	return nil
 }
+
+func (s *Secrets) GetTrackt() (app.TraktSecret, error) {
+	data, err := keyring.Get("torflix", "trakt")
+	if err != nil {
+		if errors.Is(err, keyring.ErrNotFound) {
+			return app.TraktSecret{}, nil
+		}
+		return app.TraktSecret{}, fmt.Errorf("could not get Trakt data: %w", err)
+	}
+
+	var t app.TraktSecret
+	err = json.Unmarshal([]byte(data), &t)
+	if err != nil {
+		return app.TraktSecret{}, fmt.Errorf("could not unmarshal Trakt data: %w", err)
+	}
+
+	return t, nil
+}
+
+func (s *Secrets) SetTrakt(value app.TraktSecret) error {
+	data, err := json.Marshal(value)
+	if err != nil {
+		return fmt.Errorf("could not marshal Trakt data: %w", err)
+	}
+
+	err = keyring.Set("torflix", "trakt", string(data))
+	if err != nil {
+		return fmt.Errorf("could not save Trakt data: %w", err)
+	}
+
+	return nil
+}
