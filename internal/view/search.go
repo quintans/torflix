@@ -81,6 +81,7 @@ func (v *Search) Show(searchModel *model.Search, providers []string) {
 	search.OnTapped = func() {
 		search.Disable()
 
+		v.result.UnselectAll()
 		v.data = nil
 		v.result.Refresh()
 		providers := []string{}
