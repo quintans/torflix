@@ -22,7 +22,6 @@ type ShowViewer interface {
 type AppController interface {
 	ClearCache()
 	SetOpenSubtitles(username, password string)
-	TraktLogin(func())
 }
 
 type App struct {
@@ -67,7 +66,6 @@ func (v *App) Show(data app.AppData) {
 
 	v.addCacheSection(sections, data)
 	v.addSubtitlesSection(sections, data)
-	v.addTraktSection(sections, data)
 
 	v.tabs = container.NewAppTabs(
 		container.NewTabItemWithIcon("Search", theme.SearchIcon(), v.container),
@@ -123,30 +121,6 @@ func (v *App) addSubtitlesSection(sections *fyne.Container, data app.AppData) {
 	})
 	bt.Importance = widget.HighImportance
 	sections.Add(container.NewHBox(bt, layout.NewSpacer()))
-	sections.Add(widget.NewSeparator())
-}
-
-func (v *App) addTraktSection(sections *fyne.Container, data app.AppData) {
-	sections.Add(widget.NewLabel("Trakt.tv"))
-	sections.Add(canvas.NewLine(color.Gray{128}))
-
-	msg := widget.NewLabel("Logged In")
-	bt := widget.NewButton("ReLogin", nil)
-
-	if !data.Trakt.Connected {
-		msg.SetText("Need to login")
-		bt.SetText("Login")
-	}
-	bt.Importance = widget.HighImportance
-	bt.OnTapped = func() {
-		bt.Disable()
-		msg.SetText("Waiting to accept code...")
-		v.controller.TraktLogin(func() {
-			msg.SetText("Logged In")
-		})
-	}
-
-	sections.Add(container.NewHBox(msg, bt, layout.NewSpacer()))
 	sections.Add(widget.NewSeparator())
 }
 

@@ -9,34 +9,23 @@ Features:
 
 > This project is under development
 
-## Installation
+## Build
 
-You to have [golang](https://go.dev/dl/) configured to install torflix:
+get the API key from [Open Subtitles API consumers](https://www.opensubtitles.com/en/consumers) and use it in the build command. 
 
-```sh
-go get github.com/quintans/torflix
+example using as an environment variable (`OS_API_KEY`):
+
+```bash
+go build -ldflags "-X github.com/quintans/torflix/internal/gateways/opensubtitles.apiKey=$OS_API_KEY" -o ./builds/ .
 ```
-
-Install mpv for your system from https://mpv.io/installation/
 
 ## Usage
 If you want to use subtitles, you have to provide credentials for https://www.opensubtitles.com/ in the settings tab
-
 
 If you want to scale use:
 ```dh
 FYNE_SCALE=3 ./torflix
 ```
-
-## Build
-
-Building only for the current platform:
-
-```bash
-go build -ldflags "-X github.com/quintans/torflix/internal/gateways/opensubtitles.apiKey=$OS_API_KEY -X github.com/quintans/torflix/internal/gateways/trakt.clientID=$TRAKT_CLIENT_ID -X github.com/quintans/torflix/internal/gateways/trakt.clientSecret=$TRAKT_CLIENT_SECRET" -o ./builds/ .
-```
-
-where `OS_API_KEY` is an environment variable with the opensubtitles apikey.
 
 ## Credits
 - [go-peerflix](https://github.com/Sioro-Neoku/go-peerflix) for the awesome example provided
