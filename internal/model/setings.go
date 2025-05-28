@@ -219,17 +219,6 @@ func (m *Settings) Hydrate(
 var (
 	qualities        = []string{"720p", "1080p", "2160p"}
 	htmlSearchConfig = []byte(`{
-	"tgx": {
-		"name": "TORRENT GALAXY",
-		"url": "https://torrentgalaxy.to/torrents.php?search={{query}}&lang=0&nox=2&sort=seeders&order=desc",
-		"list": "div.tgxtablerow",
-		"result": {
-			"name": ["div.tgxtablecell > div > a[title]", "@title"],
-			"magnet": ["div.tgxtablecell > a[role='button']", "@href"],
-			"size": "div.tgxtablecell > span.badge.badge-secondary",
-			"seeds": "div.tgxtablecell > span[title='Seeders/Leechers'] > font[color='green'] > b"
-		}
-	},
 	"nyaa": {
 		"name": "NYAA",
 		"url": "https://nyaa.si/?f=0&c=0_0&q={{query}}&s=seeders&o=desc",

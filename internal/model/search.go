@@ -13,7 +13,6 @@ func NewSearch() *Search {
 		selectedProviders: map[string]bool{
 			"1337x": true,
 			"bt4g":  false,
-			"tgx":   false,
 			"nyaa":  false,
 		},
 	}

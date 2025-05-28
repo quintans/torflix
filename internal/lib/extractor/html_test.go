@@ -20,35 +20,6 @@ func TestHtmlExtractor(t *testing.T) {
 		results []extractor.Result
 	}{
 		{
-			name: "tgx",
-			results: []extractor.Result{
-				{
-					Name:   "Lioness. 2023. S02E08. The Compass Points Home. 1080P. AMZN WEB-DL. DDP5.1. HEVC-X265. POOTLED.mkv",
-					Magnet: "magnet:?xt=urn:btih:fadd9563df3aeca535a8c0e27799234e22002160",
-					Size:   "1.42 GB",
-					Seeds:  "86",
-				},
-				{
-					Name:   "Lioness.2023.S02E08.720p.WEB.h264-DiRT",
-					Magnet: "magnet:?xt=urn:btih:ca94d42855031243feb50f71ec20a0f309f95b78",
-					Size:   "610.46 MB",
-					Seeds:  "44",
-				},
-				{
-					Name:   "Operazione.Speciale.Lioness.S02E08.La.Bussola.Punta.Verso.Casa.1080p.AMZN.WEB-DL.DDP2.0.H264-gattopollo.mkv",
-					Magnet: "magnet:?xt=urn:btih:d4d9cf624293f0bba679b1b9ddd835fea27462e1",
-					Size:   "3.49 GB",
-					Seeds:  "1",
-				},
-				{
-					Name:   "Special.Ops.Lioness.S02E08.La.bussola.punta.verso.casa.ITA.ENG.2160p.AMZN.WEB-DL.DDP2.0.H.265-MeM.GP.mkv",
-					Magnet: "magnet:?xt=urn:btih:3ffdae30f91485c624e13025a708918d92187fe4",
-					Size:   "5.62 GB",
-					Seeds:  "1",
-				},
-			},
-		},
-		{
 			name: "nyaa",
 			results: []extractor.Result{
 				{
