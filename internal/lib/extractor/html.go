@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/url"
 	"slices"
+	"strings"
 	"time"
 
 	"github.com/jpillora/scraper/scraper"
@@ -28,7 +29,8 @@ type HtmlResult struct {
 }
 
 type HtmlEndpoint struct {
-	QueryInPath bool `json:"queryInPath"`
+	QueryInPath bool   `json:"queryInPath"`
+	Url         string `json:"url"`
 }
 
 type Scraper struct {
@@ -66,16 +68,28 @@ func NewScraper(searchCfg, followCfg []byte) (*Scraper, error) {
 func newHandler(scrapeCfg []byte) (*scraper.Handler, error) {
 	cfg := slices.Clone(scrapeCfg)
 
-	scrapers := map[string]HtmlEndpoint{}
-	err := json.Unmarshal(cfg, &scrapers)
-	if err != nil {
-		return nil, fmt.Errorf("failed to unmarshal search config: %w", err)
+	search := &scraper.Handler{
+		Headers: map[string]string{
+			"User-Agent":      "Mozilla/5.0 (X11; Linux x86_64; rv:109.0) Gecko/20100101 Firefox/115.0",
+			"Accept":          "*/*",
+			"Accept-Encoding": "deflate",
+			"Connection":      "keep-alive",
+		},
+		Log:   true,
+		Debug: true,
 	}
-
-	search := &scraper.Handler{Log: false}
-	err = search.LoadConfig(cfg)
+	err := search.LoadConfig(cfg)
 	if err != nil {
 		return nil, fmt.Errorf("failed to load search config: %w", err)
+	}
+	for _, v := range search.Config {
+		replacer := strings.NewReplacer("{{query}}", "", "{{link}}", "")
+		newUrl := replacer.Replace(v.URL)
+		u, err := url.Parse(newUrl)
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse url: %w", err)
+		}
+		search.Headers["Host"] = u.Host
 	}
 
 	return search, nil
@@ -175,11 +189,15 @@ func scrape(handler *scraper.Handler, slug string, values map[string]string) ([]
 		return nil, fmt.Errorf("endpoint not found: %s", slug)
 	}
 
+	fmt.Println("===> Scraping", endpoint)
+
 	http.DefaultClient.Timeout = 10 * time.Second
 	res, err := endpoint.Execute(values)
 	if err != nil {
 		return nil, fmt.Errorf("failed to execute endpoint: %w", err)
 	}
+
+	fmt.Println("===> Found", len(res), "results:", res)
 
 	// encode as JSON
 	b, err := json.Marshal(res)

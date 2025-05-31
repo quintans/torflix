@@ -22,6 +22,87 @@ import (
 	"github.com/quintans/torflix/internal/view"
 )
 
+var (
+	htmlSearchConfig = []byte(`{
+	"knaben": {
+		"name": "KNABEN",
+		"queryInPath": true,
+		"url": "https://knaben.org/search/{{query}}/0/1/seeders",
+		"list": "table > tbody > tr",
+		"result": {
+			"name": ["td:nth-child(2) > a:first-of-type", "@title"],
+			"magnet": ["td:nth-child(2) > a:first-of-type", "@href"],
+			"size": "td:nth-child(3)",
+			"seeds": "td:nth-child(5)"
+		}
+	},
+	"nyaa": {
+		"name": "NYAA",
+		"url": "https://nyaa.si/?f=0&c=0_0&q={{query}}&s=seeders&o=desc",
+		"list": "table.torrent-list > tbody > tr",
+		"result": {
+			"name": ["td:nth-child(2) > a:last-child", "@title"],
+			"magnet": ["td:nth-child(3) > a:nth-child(2)", "@href"],
+			"size": "td:nth-child(4)",
+			"seeds": "td:nth-child(6)"
+		}
+	},
+	"1337x": {
+		"name": "1337x",
+		"queryInPath": true,
+		"url": "https://1337x.to/sort-search/{{query}}/seeders/desc/1/",
+		"list": "table.table-list > tbody > tr",
+		"result": {
+			"name": ["td.name > a:nth-child(2)"],
+			"follow": ["td.name > a:nth-child(2)", "@href"],
+			"size": ["td.size"],
+			"seeds": "td.seeds"
+		}
+	},
+	"bt4g": {
+		"name": "bt4g",
+		"url": "https://bt4gprx.com/search?q={{query}}&category=movie&orderby=seeders&p=1",
+		"list": "div.list-group > div.list-group-item",
+		"result": {
+			"name": ["h5 > a", "@title"],
+			"follow": ["h5 > a", "@href"],
+			"size": "p > span:nth-child(4) > b",
+			"seeds": "p > span:nth-child(5) > b"
+		}
+	}
+}`)
+	detailsScrapeConfig = []byte(`{
+	"1337x": {
+		"name": "1337x",
+		"url": "https://1337x.to{{link}}",
+		"list": "div.torrent-detail-page",
+		"result": {
+			"magnet": ["a#openPopup", "@href"]
+		}
+	},
+	"bt4g": {
+		"name": "bt4g",
+		"url": "https://bt4gprx.com{{link}}",
+		"list": "div.card-body",
+		"result": {
+			"magnet":["a:nth-child(3)", "@href", "/magnet:\\?.*/"]
+		}
+	}
+}`)
+
+	apiSearchConfig = []byte(`{
+	"tpb": {
+		"url": "https://apibay.org/q.php?q={{.query}}&cat=",
+		"result": {
+			"name": "name",
+			"hash": "info_hash",
+			"ssize": "size",
+			"seeds": "seeders"
+		}
+	}
+}`)
+)
+
 func main() {
 	cacheDir := os.Getenv("TORFLIX_CACHE_DIR")
 	if cacheDir == "" {
@@ -80,20 +161,15 @@ func main() {
 		}
 	}
 
-	settings, err := db.LoadSettings()
-	if err != nil {
-		panic(fmt.Sprintf("loading settings: %s", err))
-	}
-
 	extractors := []gapp.Extractor{}
-	searchScraper, err := extractor.NewScraper(settings.HtmlSearchConfig(), settings.HtmlDetailsSearchConfig())
+	searchScraper, err := extractor.NewScraper(htmlSearchConfig, detailsScrapeConfig)
 	if err != nil {
 		panic(fmt.Sprintf("creating search scraper: %s", err))
 	}
 	extractors = append(extractors, searchScraper)
 
-	if len(settings.ApiSearchConfig()) > 0 {
-		apiSearch, err := extractor.NewApi(settings.ApiSearchConfig())
+	if len(apiSearchConfig) > 0 {
+		apiSearch, err := extractor.NewApi(apiSearchConfig)
 		if err != nil {
 			panic(fmt.Sprintf("creating api search: %s", err))
 		}
