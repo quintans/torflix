@@ -4,7 +4,6 @@ go 1.24
 
 require (
 	fyne.io/fyne/v2 v2.5.3
-	github.com/PuerkitoBio/goquery v1.10.2
 	github.com/anacrolix/torrent v1.58.1
 	github.com/dustin/go-humanize v1.0.1
 	github.com/gocolly/colly/v2 v2.2.0
@@ -19,6 +18,7 @@ require (
 	al.essio.dev/pkg/shellescape v1.5.1 // indirect
 	fyne.io/systray v1.11.0 // indirect
 	github.com/BurntSushi/toml v1.4.0 // indirect
+	github.com/PuerkitoBio/goquery v1.10.2 // indirect
 	github.com/RoaringBitmap/roaring v1.2.3 // indirect
 	github.com/ajwerner/btree v0.0.0-20211221152037-f427b3e689c0 // indirect
 	github.com/alecthomas/atomic v0.1.0-alpha2 // indirect
