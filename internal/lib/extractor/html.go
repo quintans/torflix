@@ -17,6 +17,7 @@ type Result struct {
 	Magnet string
 	Size   string
 	Seeds  string
+	Source string
 }
 
 type HtmlResult struct {
@@ -25,10 +26,12 @@ type HtmlResult struct {
 	Size   string `json:"size"`
 	Seeds  string `json:"seeds"`
 	Follow string `json:"follow"`
+	Source string `json:"source"`
 }
 
 type HtmlEndpoint struct {
-	QueryInPath bool `json:"queryInPath"`
+	QueryInPath bool   `json:"queryInPath"`
+	Url         string `json:"url"`
 }
 
 type Scraper struct {
@@ -66,14 +69,11 @@ func NewScraper(searchCfg, followCfg []byte) (*Scraper, error) {
 func newHandler(scrapeCfg []byte) (*scraper.Handler, error) {
 	cfg := slices.Clone(scrapeCfg)
 
-	scrapers := map[string]HtmlEndpoint{}
-	err := json.Unmarshal(cfg, &scrapers)
-	if err != nil {
-		return nil, fmt.Errorf("failed to unmarshal search config: %w", err)
+	search := &scraper.Handler{
+		Log:   false,
+		Debug: false,
 	}
-
-	search := &scraper.Handler{Log: false}
-	err = search.LoadConfig(cfg)
+	err := search.LoadConfig(cfg)
 	if err != nil {
 		return nil, fmt.Errorf("failed to load search config: %w", err)
 	}
@@ -136,6 +136,7 @@ func (s *Scraper) Extract(slug string, query string) ([]Result, error) {
 			Magnet: r.Magnet,
 			Size:   r.Size,
 			Seeds:  r.Seeds,
+			Source: r.Source,
 		})
 	}
 

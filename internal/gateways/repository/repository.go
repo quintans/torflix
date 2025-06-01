@@ -89,19 +89,16 @@ type Settings struct {
 
 func (d *DB) SaveSettings(settings *model.Settings) error {
 	err := d.write("settings.json", Settings{
-		TorrentPort:             settings.TorrentPort(),
-		Port:                    settings.Port(),
-		Player:                  settings.Player().String(),
-		Tcp:                     settings.TCP(),
-		MaxConnections:          settings.MaxConnections(),
-		Seed:                    settings.Seed(),
-		Languages:               settings.Languages(),
-		HtmlSearchConfig:        settings.HtmlSearchConfig(),
-		HtmlDetailsSearchConfig: settings.HtmlDetailsSearchConfig(),
-		ApiSearchConfig:         settings.ApiSearchConfig(),
-		Qualities:               settings.Qualities(),
-		UploadRate:              settings.UploadRate(),
-		OpenSubtitles:           settings.OpenSubtitles,
+		TorrentPort:    settings.TorrentPort(),
+		Port:           settings.Port(),
+		Player:         settings.Player().String(),
+		Tcp:            settings.TCP(),
+		MaxConnections: settings.MaxConnections(),
+		Seed:           settings.Seed(),
+		Languages:      settings.Languages(),
+		Qualities:      settings.Qualities(),
+		UploadRate:     settings.UploadRate(),
+		OpenSubtitles:  settings.OpenSubtitles,
 	})
 	if err != nil {
 		return fmt.Errorf("saving settings: %w", err)

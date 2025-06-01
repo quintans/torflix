@@ -38,20 +38,17 @@ var Players = []Player{
 }
 
 type Settings struct {
-	torrentPort             int
-	port                    int
-	player                  Player
-	tcp                     bool
-	maxConnections          int
-	seed                    bool
-	seedAfterComplete       bool
-	languages               []string
-	htmlSearchConfig        []byte
-	htmlDetailsSearchConfig []byte
-	apiSearchConfig         []byte
-	qualities               []string
-	uploadRate              int
-	OpenSubtitles           OpenSubtitles
+	torrentPort       int
+	port              int
+	player            Player
+	tcp               bool
+	maxConnections    int
+	seed              bool
+	seedAfterComplete bool
+	languages         []string
+	qualities         []string
+	uploadRate        int
+	OpenSubtitles     OpenSubtitles
 }
 
 type OpenSubtitles struct {
@@ -60,18 +57,15 @@ type OpenSubtitles struct {
 
 func NewSettings() *Settings {
 	return &Settings{
-		port:                    8080,
-		player:                  MPV,
-		torrentPort:             50007,
-		seed:                    true,
-		seedAfterComplete:       false,
-		tcp:                     true,
-		maxConnections:          200,
-		languages:               []string{"po-PT", "pt-BR", "en"},
-		qualities:               qualities,
-		htmlSearchConfig:        htmlSearchConfig,
-		htmlDetailsSearchConfig: detailsScrapeConfig,
-		apiSearchConfig:         apiSearchConfig,
+		port:              8080,
+		player:            MPV,
+		torrentPort:       50007,
+		seed:              true,
+		seedAfterComplete: false,
+		tcp:               true,
+		maxConnections:    200,
+		languages:         []string{"po-PT", "pt-BR", "en"},
+		qualities:         qualities,
 		OpenSubtitles: OpenSubtitles{
 			Username: "",
 		},
@@ -144,30 +138,6 @@ func (m *Settings) SetLanguages(languages []string) {
 	m.languages = languages
 }
 
-func (m *Settings) HtmlSearchConfig() []byte {
-	return m.htmlSearchConfig
-}
-
-func (m *Settings) SetHtmlSearchConfig(searchConfig []byte) {
-	m.htmlSearchConfig = searchConfig
-}
-
-func (m *Settings) HtmlDetailsSearchConfig() []byte {
-	return m.htmlDetailsSearchConfig
-}
-
-func (m *Settings) SetHtmlDetailsSearchConfig(detailsSearchConfig []byte) {
-	m.htmlDetailsSearchConfig = detailsSearchConfig
-}
-
-func (m *Settings) ApiSearchConfig() []byte {
-	return m.apiSearchConfig
-}
-
-func (m *Settings) SetApiSearchConfig(apiSearchConfig []byte) {
-	m.apiSearchConfig = apiSearchConfig
-}
-
 func (m *Settings) Qualities() []string {
 	return m.qualities
 }
@@ -208,79 +178,11 @@ func (m *Settings) Hydrate(
 	m.seed = seed
 	m.seedAfterComplete = seedAfterComplete
 	m.languages = languages
-	m.htmlSearchConfig = searchConfig
-	m.htmlDetailsSearchConfig = detailsSearchConfig
-	m.apiSearchConfig = apiSearchConfig
 	m.qualities = qualities
 	m.uploadRate = uploadRate
 	m.OpenSubtitles = OpenSubtitles
 }
 
 var (
-	qualities        = []string{"720p", "1080p", "2160p"}
-	htmlSearchConfig = []byte(`{
-	"nyaa": {
-		"name": "NYAA",
-		"url": "https://nyaa.si/?f=0&c=0_0&q={{query}}&s=seeders&o=desc",
-		"list": "table.torrent-list > tbody > tr",
-		"result": {
-			"name": ["td:nth-child(2) > a:last-child", "@title"],
-			"magnet": ["td:nth-child(3) > a:nth-child(2)", "@href"],
-			"size": "td:nth-child(4)",
-			"seeds": "td:nth-child(6)"
-		}
-	},
-	"1337x": {
-		"name": "1337x",
-		"url": "https://1337x.to/sort-search/{{query}}/seeders/desc/1/",
-		"list": "table.table-list > tbody > tr",
-		"result": {
-			"name": ["td.name > a:nth-child(2)", "@href", "/\/torrent\/[0-9]+\/(.*?)\//"],
-			"follow": ["td.name > a:nth-child(2)", "@href"],
-			"size": ["td.size", "/^(.*?B)/"],
-			"seeds": "td.seeds"
-		}
-	},
-	"bt4g": {
-		"name": "bt4g",
-		"url": "https://bt4gprx.com/search?q={{query}}&category=movie&orderby=seeders&p=1",
-		"list": "div.list-group > div.list-group-item",
-		"result": {
-			"name": ["h5 > a", "@title"],
-			"follow": ["h5 > a", "@href"],
-			"size": "p > span:nth-child(4) > b",
-			"seeds": "p > span:nth-child(5) > b"
-		}
-	}
-}`)
-	detailsScrapeConfig = []byte(`{
-	"1337x": {
-		"name": "1337x",
-		"url": "https://1337x.to{{link}}",
-		"list": "div.torrent-detail-page",
-		"result": {
-			"magnet": ["a#openPopup", "@href"]
-		}
-	},
-	"bt4g": {
-		"name": "bt4g",
-		"url": "https://bt4gprx.com{{link}}",
-		"list": "div.card-body",
-		"result": {
-			"magnet":["a:nth-child(3)", "@href", "/magnet:\\?.*/"]
-		}
-	}
-}`)
-
-	apiSearchConfig = []byte(`{
-	"tpb": {
-		"url": "https://apibay.org/q.php?q={{.query}}&cat=",
-		"result": {
-			"name": "name",
-			"hash": "info_hash",
-			"ssize": "size",
-			"seeds": "seeders"
-		}
-	}
-}`)
+	qualities = []string{"720p", "1080p", "2160p"}
 )

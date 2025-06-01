@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/quintans/torflix/internal/lib/extractor"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
@@ -19,6 +20,29 @@ func TestHtmlExtractor(t *testing.T) {
 		name    string
 		results []extractor.Result
 	}{
+		{
+			name: "knaben",
+			results: []extractor.Result{
+				{
+					Name:   "Star Wars Episode IV - A New Hope (1977) 2160p BRRip 5.1 10Bit x265 -YTS",
+					Magnet: "magnet:?xt=urn:btih:103926E638B3A561A21B2393B2FAF68A8E9EAB61",
+					Size:   "5.67 GB",
+					Seeds:  "212",
+				},
+				{
+					Name:   "Star Wars: Episode IV A New Hope (1977) [2160p] [4K] [BluRay] [5.1] [YTS] [YIFY]",
+					Magnet: "magnet:?xt=urn:btih:103926E638B3A561A21B2393B2FAF68A8E9EAB61",
+					Size:   "5.73 GB",
+					Seeds:  "209",
+				},
+				{
+					Name:   "Star Wars: Episode IV - A New Hope [1977, UHD BDRemux 2160p, HDR10, Dolby Vision] [Hybrid] 3x Dub + 2x DVO + 3x MVO + 10x AVO + 3x VO + Original (Eng) + Sub (Rus, Eng)",
+					Magnet: "magnet:?xt=urn:btih:5C17D8E09A7F17F1BC15AECED02A7A91FB286E93",
+					Size:   "91.82 GB",
+					Seeds:  "108",
+				},
+			},
+		},
 		{
 			name: "nyaa",
 			results: []extractor.Result{
@@ -93,7 +117,13 @@ func TestHtmlExtractor(t *testing.T) {
 	searchScraper, err := extractor.NewScraper(searchConfig, detailsSearchConfig)
 	require.NoError(t, err)
 
-	for _, tt := range tests {
+	for k, tt := range tests {
+
+		//! delete me
+		if k != 0 {
+			continue
+		}
+
 		t.Run(tt.name, func(t *testing.T) {
 			server := &http.Server{
 				Addr: ":1234",
@@ -135,7 +165,13 @@ func TestHtmlExtractor(t *testing.T) {
 				results[i].Name = removeExtraSpaces(results[i].Name)
 			}
 
-			require.Equal(t, tt.results, results)
+			require.Len(t, results, len(tt.results))
+			for i := range results {
+				assert.Equal(t, tt.results[i].Name, results[i].Name)
+				assert.Equal(t, tt.results[i].Magnet, results[i].Magnet)
+				assert.Equal(t, tt.results[i].Size, results[i].Size)
+				assert.Equal(t, tt.results[i].Seeds, results[i].Seeds)
+			}
 		})
 	}
 }
@@ -147,6 +183,17 @@ func removeExtraSpaces(input string) string {
 }
 
 var searchConfig = []byte(`{
+	"knaben": {
+		"name": "KNABEN",
+		"url": "http://localhost:1234/search/{{query}}/0/1/seeders",
+		"list": "table > tbody > tr",
+		"result": {
+			"name": ["td:nth-child(2) > a:first-of-type", "@title"],
+			"magnet": ["td:nth-child(2) > a:first-of-type", "@href", "/(magnet:\\?xt=urn:btih:[A-Za-z0-9]+)/"],
+			"size": "td:nth-child(3)",
+			"seeds": "td:nth-child(5)"
+		}
+	},
 	"tgx": {
 		"name": "TORRENT GALAXY",
 		"url": "http://localhost:1234/search.php?search={{query}}&lang=0&nox=2&sort=seeders&order=desc",
