@@ -33,7 +33,8 @@ var (
 			"name": ["td:nth-child(2) > a:first-of-type", "@title"],
 			"magnet": ["td:nth-child(2) > a:first-of-type", "@href"],
 			"size": "td:nth-child(3)",
-			"seeds": "td:nth-child(5)"
+			"seeds": "td:nth-child(5)",
+			"source": "td:nth-child(7)"
 		}
 	},
 	"nyaa": {
@@ -50,7 +51,7 @@ var (
 	"1337x": {
 		"name": "1337x",
 		"queryInPath": true,
-		"url": "https://1337x.to/sort-search/{{query}}/seeders/desc/1/",
+		"url": "https://www.1377x.to/sort-search/{{query}}/seeders/desc/1/",
 		"list": "table.table-list > tbody > tr",
 		"result": {
 			"name": ["td.name > a:nth-child(2)"],

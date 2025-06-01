@@ -7,7 +7,6 @@ import (
 	"net/http"
 	"net/url"
 	"slices"
-	"strings"
 	"time"
 
 	"github.com/jpillora/scraper/scraper"
@@ -18,6 +17,7 @@ type Result struct {
 	Magnet string
 	Size   string
 	Seeds  string
+	Source string
 }
 
 type HtmlResult struct {
@@ -26,6 +26,7 @@ type HtmlResult struct {
 	Size   string `json:"size"`
 	Seeds  string `json:"seeds"`
 	Follow string `json:"follow"`
+	Source string `json:"source"`
 }
 
 type HtmlEndpoint struct {
@@ -69,28 +70,12 @@ func newHandler(scrapeCfg []byte) (*scraper.Handler, error) {
 	cfg := slices.Clone(scrapeCfg)
 
 	search := &scraper.Handler{
-		Headers: map[string]string{
-			"User-Agent":      "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
-			"Accept":          "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
-			"Accept-Language": "en-US,en;q=0.5",
-			"Accept-Encoding": "deflate",
-			"Connection":      "keep-alive",
-		},
-		Log:   true,
-		Debug: true,
+		Log:   false,
+		Debug: false,
 	}
 	err := search.LoadConfig(cfg)
 	if err != nil {
 		return nil, fmt.Errorf("failed to load search config: %w", err)
-	}
-	for _, v := range search.Config {
-		replacer := strings.NewReplacer("{{query}}", "", "{{link}}", "")
-		newUrl := replacer.Replace(v.URL)
-		u, err := url.Parse(newUrl)
-		if err != nil {
-			return nil, fmt.Errorf("failed to parse url: %w", err)
-		}
-		search.Headers["Host"] = u.Host
 	}
 
 	return search, nil
@@ -151,6 +136,7 @@ func (s *Scraper) Extract(slug string, query string) ([]Result, error) {
 			Magnet: r.Magnet,
 			Size:   r.Size,
 			Seeds:  r.Seeds,
+			Source: r.Source,
 		})
 	}
 
@@ -190,15 +176,11 @@ func scrape(handler *scraper.Handler, slug string, values map[string]string) ([]
 		return nil, fmt.Errorf("endpoint not found: %s", slug)
 	}
 
-	fmt.Println("===> Scraping", endpoint)
-
 	http.DefaultClient.Timeout = 10 * time.Second
 	res, err := endpoint.Execute(values)
 	if err != nil {
 		return nil, fmt.Errorf("failed to execute endpoint: %w", err)
 	}
-
-	fmt.Println("===> Found", len(res), "results:", res)
 
 	// encode as JSON
 	b, err := json.Marshal(res)

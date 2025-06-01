@@ -19,6 +19,7 @@ import (
 	"github.com/quintans/torflix/internal/lib/magnet"
 	"github.com/quintans/torflix/internal/lib/safe"
 	"github.com/quintans/torflix/internal/lib/timers"
+	"github.com/quintans/torflix/internal/lib/values"
 	"github.com/quintans/torflix/internal/model"
 )
 
@@ -251,7 +252,7 @@ func (c Search) transformToMyResult(slug string, r []extractor.Result, qualities
 		}
 
 		result := Result{
-			Provider: slug,
+			Provider: values.Coalesce(r.Source, slug),
 			Name:     r.Name,
 			Magnet:   r.Magnet,
 			Size:     r.Size,
