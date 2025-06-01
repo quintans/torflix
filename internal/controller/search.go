@@ -3,6 +3,7 @@ package controller
 import (
 	"cmp"
 	"fmt"
+	"net/http"
 	"net/url"
 	"regexp"
 	"slices"
@@ -204,6 +205,7 @@ func (c Search) Search(query string, selectedProviders []string) ([]components.M
 
 	results, err = c.collapseByHash(results)
 	if err != nil {
+		c.eventBus.Error("Failed search: %s", err)
 		return nil, fmt.Errorf("collapsing by hash: %w", err)
 	}
 
@@ -275,12 +277,16 @@ func (c Search) transformToMyResult(slug string, r []extractor.Result, qualities
 
 func (c Search) collapseByHash(results []Result) ([]Result, error) {
 	groups := map[string][]Result{}
-	for _, r := range results {
-		h, ok := groups[r.Hash]
+	for k, r := range results {
+		hash := r.Hash
+		if hash == "" {
+			hash = fmt.Sprintf("no_hash_%d", k)
+		}
+		h, ok := groups[hash]
 		if !ok {
-			groups[r.Hash] = []Result{r}
+			groups[hash] = []Result{r}
 		} else {
-			groups[r.Hash] = append(h, r)
+			groups[hash] = append(h, r)
 		}
 	}
 
@@ -353,17 +359,37 @@ func mergeMagnetLinks(links []string) (string, string, error) {
 	webSeeds := make(map[string]struct{})
 
 	for _, link := range links {
+		u, err := url.Parse(link)
+		if err != nil {
+			return "", "", fmt.Errorf("failed to parse link (%s): %w", link, err)
+		}
+
+		if strings.HasPrefix(u.Scheme, "http") {
+			// stop redirect
+			checkRedirect := http.DefaultClient.CheckRedirect
+			http.DefaultClient.CheckRedirect = func(req *http.Request, via []*http.Request) error {
+				return http.ErrUseLastResponse
+			}
+			defer func() {
+				http.DefaultClient.CheckRedirect = checkRedirect
+			}()
+
+			res, err := http.Get(link)
+			if err != nil {
+				return "", "", fmt.Errorf("failed to fetch link (%s): %w", link, err)
+			}
+			defer res.Body.Close()
+			if res.StatusCode != http.StatusTemporaryRedirect &&
+				res.StatusCode != http.StatusPermanentRedirect {
+				return "", "", fmt.Errorf("don't know how to handle non-magnet link: %s; Status Code: %d", link, res.StatusCode)
+			}
+
+			link = res.Header.Get("Location")
+		}
+
 		mag, err := magnet.Parse(link)
 		if err != nil {
 			return "", "", fmt.Errorf("failed to parse magnet link (%s): %w", link, err)
-		}
-
-		u, err := url.Parse(link)
-		if err != nil {
-			return "", "", fmt.Errorf("failed to parse magnet link (%s): %w", link, err)
-		}
-		if u.Scheme != "magnet" {
-			return "", "", fmt.Errorf("invalid scheme for magnet (%s): %s", link, u.Scheme)
 		}
 
 		dns = append(dns, mag.DisplayName)
