@@ -133,12 +133,6 @@ func (c *Download) OnEnter() {
 }
 
 func (c *Download) onEnter() error {
-	c.eventBus.Publish(app.EscapeHandler{
-		Handler: func() {
-			c.Back()
-		},
-	})
-
 	d := timers.NewDebounce(time.Second, func() {
 		c.eventBus.Publish(app.Loading{
 			Text: "Downloading torrent metadata",
@@ -160,9 +154,17 @@ func (c *Download) onEnter() error {
 	}
 
 	files := c.client.GetFilteredFiles()
-	if files == nil {
-		return fmt.Errorf("no media file found")
+	if len(files) == 0 {
+		c.eventBus.Warn("No media files found")
+		c.Back()
+		return nil
 	}
+
+	c.eventBus.Publish(app.EscapeHandler{
+		Handler: func() {
+			c.Back()
+		},
+	})
 
 	if len(files) == 1 {
 		return c.playFile(files[0], false)
