@@ -2,7 +2,6 @@ package extractor
 
 import (
 	"encoding/json"
-	"fmt"
 	"log/slog"
 	"net/http"
 	"net/url"
@@ -10,6 +9,7 @@ import (
 	"time"
 
 	"github.com/jpillora/scraper/scraper"
+	"github.com/quintans/faults"
 )
 
 type Result struct {
@@ -46,17 +46,17 @@ func NewScraper(searchCfg, followCfg []byte) (*Scraper, error) {
 	scrapers := map[string]HtmlEndpoint{}
 	err := json.Unmarshal(cfg, &scrapers)
 	if err != nil {
-		return nil, fmt.Errorf("failed to unmarshal search config: %w", err)
+		return nil, faults.Errorf("failed to unmarshal search config: %w", err)
 	}
 
 	queryHandler, err := newHandler(searchCfg)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create query handler: %w", err)
+		return nil, faults.Errorf("failed to create query handler: %w", err)
 	}
 
 	followHandler, err := newHandler(followCfg)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create follow handler: %w", err)
+		return nil, faults.Errorf("failed to create follow handler: %w", err)
 	}
 
 	return &Scraper{
@@ -75,7 +75,7 @@ func newHandler(scrapeCfg []byte) (*scraper.Handler, error) {
 	}
 	err := search.LoadConfig(cfg)
 	if err != nil {
-		return nil, fmt.Errorf("failed to load search config: %w", err)
+		return nil, faults.Errorf("failed to load search config: %w", err)
 	}
 
 	return search, nil
@@ -97,7 +97,7 @@ func (s *Scraper) Slugs() []string {
 func (s *Scraper) Extract(slug string, query string) ([]Result, error) {
 	cfg, ok := s.queryScrapers[slug]
 	if !ok {
-		return nil, fmt.Errorf("no scraper found for %s", slug)
+		return nil, faults.Errorf("no scraper found for %s", slug)
 	}
 
 	if cfg.QueryInPath {
@@ -110,7 +110,7 @@ func (s *Scraper) Extract(slug string, query string) ([]Result, error) {
 		"query": query,
 	})
 	if err != nil {
-		return nil, fmt.Errorf("failed to scrape query: %w", err)
+		return nil, faults.Errorf("failed to scrape query: %w", err)
 	}
 
 	// retrieve magnet if follow link is set
@@ -145,20 +145,20 @@ func (s *Scraper) Extract(slug string, query string) ([]Result, error) {
 
 func (s *Scraper) follow(provider, link string) (string, error) {
 	if link == "" {
-		return "", fmt.Errorf("follow link not set")
+		return "", faults.Errorf("follow link not set")
 	}
 
 	results, err := s.scrapeLink(provider, link)
 	if err != nil {
-		return "", fmt.Errorf("failed to scrape follow link: %w", err)
+		return "", faults.Errorf("failed to scrape follow link: %w", err)
 	}
 
 	if len(results) == 0 {
-		return "", fmt.Errorf("no results found for follow link")
+		return "", faults.Errorf("no results found for follow link")
 	}
 
 	if results[0].Magnet == "" {
-		return "", fmt.Errorf("no magnet link found for follow link")
+		return "", faults.Errorf("no magnet link found for follow link")
 	}
 
 	return results[0].Magnet, nil
@@ -173,25 +173,25 @@ func (s *Scraper) scrapeLink(slug string, link string) ([]HtmlResult, error) {
 func scrape(handler *scraper.Handler, slug string, values map[string]string) ([]HtmlResult, error) {
 	endpoint := handler.Endpoint(slug)
 	if endpoint == nil {
-		return nil, fmt.Errorf("endpoint not found: %s", slug)
+		return nil, faults.Errorf("endpoint not found: %s", slug)
 	}
 
 	http.DefaultClient.Timeout = 10 * time.Second
 	res, err := endpoint.Execute(values)
 	if err != nil {
-		return nil, fmt.Errorf("failed to execute endpoint: %w", err)
+		return nil, faults.Errorf("failed to execute endpoint: %w", err)
 	}
 
 	// encode as JSON
 	b, err := json.Marshal(res)
 	if err != nil {
-		return nil, fmt.Errorf("failed to marshal results: %w", err)
+		return nil, faults.Errorf("failed to marshal results: %w", err)
 	}
 
 	results := make([]HtmlResult, 0, len(res))
 	err = json.Unmarshal(b, &results)
 	if err != nil {
-		return nil, fmt.Errorf("failed to unmarshal results: %w", err)
+		return nil, faults.Errorf("failed to unmarshal results: %w", err)
 	}
 
 	return results, nil

@@ -1,6 +1,6 @@
 package model
 
-import "fmt"
+import "github.com/quintans/faults"
 
 type Search struct {
 	query             string
@@ -20,7 +20,7 @@ func NewSearch() *Search {
 
 func (m *Search) SetQuery(query string) error {
 	if query == "" {
-		return fmt.Errorf("query cannot be empty")
+		return faults.Errorf("query cannot be empty")
 	}
 	m.query = query
 

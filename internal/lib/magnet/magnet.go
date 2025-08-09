@@ -1,10 +1,10 @@
 package magnet
 
 import (
-	"fmt"
 	"net/url"
 	"strings"
 
+	"github.com/quintans/faults"
 	"github.com/quintans/torflix/internal/lib/maps"
 )
 
@@ -21,10 +21,10 @@ const hashPrefix = "urn:btih:"
 func Parse(link string) (Magnet, error) {
 	u, err := url.Parse(link)
 	if err != nil {
-		return Magnet{}, fmt.Errorf("failed to parse magnet link: %w", err)
+		return Magnet{}, faults.Errorf("failed to parse magnet link: %w", err)
 	}
 	if u.Scheme != "magnet" {
-		return Magnet{}, fmt.Errorf("invalid scheme for magnet: %s", u.Scheme)
+		return Magnet{}, faults.Errorf("invalid scheme for magnet: %s", u.Scheme)
 	}
 
 	// Maps to store unique values for each component
@@ -44,7 +44,7 @@ func Parse(link string) (Magnet, error) {
 					if hash == "" {
 						hash = value
 					} else if hash != value {
-						return Magnet{}, fmt.Errorf("different hashes found: %s and %s", hash, value)
+						return Magnet{}, faults.Errorf("different hashes found: %s and %s", hash, value)
 					}
 				}
 			}
@@ -64,7 +64,7 @@ func Parse(link string) (Magnet, error) {
 	}
 
 	if hash == "" {
-		return Magnet{}, fmt.Errorf("no hash (xt) found in magnet link")
+		return Magnet{}, faults.Errorf("no hash (xt) found in magnet link")
 	}
 
 	return Magnet{

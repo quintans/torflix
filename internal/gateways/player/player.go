@@ -2,9 +2,9 @@ package player
 
 import (
 	"context"
-	"fmt"
 	"os/exec"
 
+	"github.com/quintans/faults"
 	"github.com/quintans/torflix/internal/model"
 )
 
@@ -17,12 +17,12 @@ func (p Player) Open(ctx context.Context, player model.Player, url string, subti
 		}
 	}
 
-	return fmt.Errorf("player %s not found", player)
+	return faults.Errorf("player %s not found", player)
 }
 
 var genericPlayers = []GenericPlayer{
-	{Name: "MPV", Args: []string{"mpv", "--save-position-on-quit", "--sub-auto=all"}, Subs: "--sub-file-paths="},
-	{Name: "VLC", Args: []string{"vlc"}},
+	{Name: "MPV", Args: []string{"mpv", "--save-position-on-quit", "--sub-auto=all", "--hwdec=auto"}, Subs: "--sub-file-paths="},
+	{Name: "VLC", Args: []string{"vlc", "--sub-autodetect-fuzzy=1"}, Subs: "--sub-autodetect-path="},
 	{Name: "MPlayer", Args: []string{"mplayer"}},
 }
 
@@ -45,12 +45,12 @@ func (p GenericPlayer) Open(ctx context.Context, url string, subtitlesDir string
 	c := exec.CommandContext(ctx, command[0], command[1:]...)
 	err := c.Start()
 	if err != nil {
-		return fmt.Errorf("error opening player: %w", err)
+		return faults.Errorf("error opening player: %w", err)
 	}
 
 	err = c.Wait()
 	if err != nil {
-		return fmt.Errorf("waiting player to close: %w", err)
+		return faults.Errorf("waiting player to close: %w", err)
 	}
 
 	return nil

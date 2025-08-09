@@ -7,6 +7,7 @@ import (
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/app"
+	"github.com/quintans/faults"
 	gapp "github.com/quintans/torflix/internal/app"
 	"github.com/quintans/torflix/internal/controller"
 	"github.com/quintans/torflix/internal/gateways/eventbus"
@@ -247,7 +248,7 @@ func torrentClientFactory(db *repository.DB, mediaDir, torrentFileDir string) fu
 	return func(link string) (gapp.TorrentClient, error) {
 		settings, err := db.LoadSettings()
 		if err != nil {
-			return nil, fmt.Errorf("torrent client factory loading settings: %w", err)
+			return nil, faults.Errorf("torrent client factory loading settings: %w", err)
 		}
 		tCli, err := tor.NewTorrentClient(
 			tor.ClientConfig{
@@ -265,7 +266,7 @@ func torrentClientFactory(db *repository.DB, mediaDir, torrentFileDir string) fu
 			link,
 		)
 		if err != nil {
-			return nil, fmt.Errorf("creating torrent client: %w", err)
+			return nil, faults.Errorf("creating torrent client: %w", err)
 		}
 
 		return tCli, nil

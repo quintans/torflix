@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/quintans/faults"
 	"github.com/quintans/torflix/internal/lib/fails"
 	"github.com/stretchr/testify/assert"
 )
@@ -13,7 +14,7 @@ import (
 func TestValuerError(t *testing.T) {
 	err := errors.New("error")
 	err2 := fails.NewWithErr(err, "wrap1", "key", "value")
-	err = fmt.Errorf("something: %w", err2)
+	err = faults.Errorf("something: %w", err2)
 	err2 = fails.NewWithErr(err, "wrap2", "key2", "value2")
 
 	buf := new(bytes.Buffer)

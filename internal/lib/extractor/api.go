@@ -10,6 +10,7 @@ import (
 	"text/template"
 
 	"github.com/dustin/go-humanize"
+	"github.com/quintans/faults"
 	"github.com/tidwall/gjson"
 )
 
@@ -28,7 +29,7 @@ func NewApi(cfg []byte) (*Api, error) {
 	extractors := map[string]apiConfig{}
 	err := json.Unmarshal(cfg, &extractors)
 	if err != nil {
-		return nil, fmt.Errorf("failed to unmarshal search config: %w", err)
+		return nil, faults.Errorf("failed to unmarshal search config: %w", err)
 	}
 
 	return &Api{
@@ -52,7 +53,7 @@ func (s *Api) Slugs() []string {
 func (a *Api) Extract(slug string, query string) ([]Result, error) {
 	xtr, ok := a.extractors[slug]
 	if !ok {
-		return nil, fmt.Errorf("no scraper found for %s", slug)
+		return nil, faults.Errorf("no scraper found for %s", slug)
 	}
 
 	if xtr.QueryInPath {
@@ -63,27 +64,27 @@ func (a *Api) Extract(slug string, query string) ([]Result, error) {
 
 	u, err := replaceData(xtr.Url, map[string]string{"query": query})
 	if err != nil {
-		return nil, fmt.Errorf("failed to replace data: %w", err)
+		return nil, faults.Errorf("failed to replace data: %w", err)
 	}
 
 	r, err := http.Get(u)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get API data for '%s': %w", slug, err)
+		return nil, faults.Errorf("failed to get API data for '%s': %w", slug, err)
 	}
 	defer r.Body.Close()
 
 	if r.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("failed to get API data for '%s', status code: %d", slug, r.StatusCode)
+		return nil, faults.Errorf("failed to get API data for '%s', status code: %d", slug, r.StatusCode)
 	}
 
 	data, err := io.ReadAll(r.Body)
 	if err != nil {
-		return nil, fmt.Errorf("failed to read API data for '%s': %w", slug, err)
+		return nil, faults.Errorf("failed to read API data for '%s': %w", slug, err)
 	}
 
 	res, err := transform(xtr, string(data))
 	if err != nil {
-		return nil, fmt.Errorf("failed to transform data: %w", err)
+		return nil, faults.Errorf("failed to transform data: %w", err)
 	}
 
 	return res, nil
@@ -93,7 +94,7 @@ func transform(endpoint apiConfig, data string) ([]Result, error) {
 	apiRes := apiFieldsQuery{}
 	err := json.Unmarshal(endpoint.Result, &apiRes)
 	if err != nil {
-		return nil, fmt.Errorf("failed to unmarshal result: %w", err)
+		return nil, faults.Errorf("failed to unmarshal result: %w", err)
 	}
 
 	if endpoint.List != "" {
@@ -126,7 +127,7 @@ func transform(endpoint apiConfig, data string) ([]Result, error) {
 		case v.SSize != "":
 			s, err := humanize.ParseBytes(v.SSize)
 			if err != nil {
-				return nil, fmt.Errorf("failed to parse size: %w", err)
+				return nil, faults.Errorf("failed to parse size: %w", err)
 			}
 			v.HSize = humanize.Bytes(s)
 		}
@@ -150,13 +151,13 @@ func transform(endpoint apiConfig, data string) ([]Result, error) {
 func replaceData(data string, replacements map[string]string) (string, error) {
 	tmpl, err := template.New("data").Parse(data)
 	if err != nil {
-		return "", fmt.Errorf("failed to parse template: %w", err)
+		return "", faults.Errorf("failed to parse template: %w", err)
 	}
 
 	var buf bytes.Buffer
 	err = tmpl.Execute(&buf, replacements)
 	if err != nil {
-		return "", fmt.Errorf("failed to execute template: %w", err)
+		return "", faults.Errorf("failed to execute template: %w", err)
 	}
 
 	return buf.String(), nil

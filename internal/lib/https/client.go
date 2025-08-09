@@ -3,11 +3,11 @@ package https
 import (
 	"bytes"
 	"encoding/json"
-	"fmt"
 	"io"
 	"net/http"
 	"slices"
 
+	"github.com/quintans/faults"
 	"github.com/quintans/torflix/internal/lib/fails"
 	"github.com/quintans/torflix/internal/lib/retry"
 )
@@ -38,7 +38,7 @@ func (c *Client) Request(method, uri string, request any, response any, header h
 	if request != nil {
 		bodyJSON, err := json.Marshal(request)
 		if err != nil {
-			return fmt.Errorf("marshalling request (%+v): %w", request, err)
+			return faults.Errorf("marshalling request (%+v): %w", request, err)
 		}
 		body = bytes.NewBuffer(bodyJSON)
 	}
@@ -55,13 +55,13 @@ func (c *Client) Request(method, uri string, request any, response any, header h
 	url := c.BaseURL + uri
 	req, err := http.NewRequest(method, url, body)
 	if err != nil {
-		return fmt.Errorf("creating request: %w", err)
+		return faults.Errorf("creating request: %w", err)
 	}
 	req.Header = h
 	client := &http.Client{}
 	resp, err := client.Do(req)
 	if err != nil {
-		return fmt.Errorf("requesting %s: %w", url, err)
+		return faults.Errorf("requesting %s: %w", url, err)
 	}
 	defer resp.Body.Close()
 
@@ -72,15 +72,15 @@ func (c *Client) Request(method, uri string, request any, response any, header h
 
 		body, err := io.ReadAll(resp.Body)
 		if err != nil {
-			return retry.NewPermanentError(fmt.Errorf("reading response body: %w", err))
+			return retry.NewPermanentError(faults.Errorf("reading response body: %w", err))
 		}
-		return retry.NewPermanentError(fmt.Errorf("response status code %d for %s; response: %s", resp.StatusCode, url, string(body)))
+		return retry.NewPermanentError(faults.Errorf("response status code %d for %s; response: %s", resp.StatusCode, url, string(body)))
 	}
 
 	if response != nil {
 		err = json.NewDecoder(resp.Body).Decode(response)
 		if err != nil {
-			return fmt.Errorf("decoding response: %w", err)
+			return faults.Errorf("decoding response: %w", err)
 		}
 	}
 

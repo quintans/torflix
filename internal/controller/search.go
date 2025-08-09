@@ -13,6 +13,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/quintans/faults"
 	"github.com/quintans/torflix/internal/app"
 	"github.com/quintans/torflix/internal/components"
 	"github.com/quintans/torflix/internal/lib/extractor"
@@ -60,7 +61,7 @@ func NewSearch(
 
 	model, err := repo.LoadSearch()
 	if err != nil {
-		return Search{}, fmt.Errorf("loading search: %w", err)
+		return Search{}, faults.Errorf("loading search: %w", err)
 	}
 	selectedProviders := model.SelectedProviders()
 	changed := false
@@ -128,18 +129,18 @@ func (c Search) Search(query string, selectedProviders []string) ([]components.M
 	query = strings.TrimSpace(query)
 	model, err := c.repo.LoadSearch()
 	if err != nil {
-		return nil, fmt.Errorf("loading search: %w", err)
+		return nil, faults.Errorf("loading search: %w", err)
 	}
 
 	err = model.SetQuery(query)
 	if err != nil {
-		return nil, fmt.Errorf("setting query: %w", err)
+		return nil, faults.Errorf("setting query: %w", err)
 	}
 
 	if strings.HasPrefix(query, "magnet:") {
 		mag, err := magnet.Parse(query)
 		if err != nil {
-			return nil, fmt.Errorf("parsing magnet: %w", err)
+			return nil, faults.Errorf("parsing magnet: %w", err)
 		}
 		dn := mag.DisplayName
 		if dn == "" {
@@ -160,7 +161,7 @@ func (c Search) Search(query string, selectedProviders []string) ([]components.M
 
 	settings, err := c.repo.LoadSettings()
 	if err != nil {
-		return nil, fmt.Errorf("loading settings: %w", err)
+		return nil, faults.Errorf("loading settings: %w", err)
 	}
 	qualities := settings.Qualities()
 	safeRes := safe.New([]Result{})
@@ -206,7 +207,7 @@ func (c Search) Search(query string, selectedProviders []string) ([]components.M
 	results, err = c.collapseByHash(results)
 	if err != nil {
 		c.eventBus.Error("Failed search: %s", err)
-		return nil, fmt.Errorf("collapsing by hash: %w", err)
+		return nil, faults.Errorf("collapsing by hash: %w", err)
 	}
 
 	slices.SortFunc(results, func(b, a Result) int {
@@ -244,7 +245,7 @@ func (c Search) transformToMyResult(slug string, r []extractor.Result, qualities
 		rep := strings.NewReplacer(",", "", ".", "")
 		seeds, err := strconv.Atoi(rep.Replace(r.Seeds))
 		if err != nil {
-			return nil, fmt.Errorf("converting seeds '%s' for '%s': %s", r.Seeds, r.Name, err)
+			return nil, faults.Errorf("converting seeds '%s' for '%s': %s", r.Seeds, r.Name, err)
 		}
 
 		var hash string
@@ -306,7 +307,7 @@ func (c Search) collapseByHash(results []Result) ([]Result, error) {
 
 			magnet, dn, err := mergeMagnetLinks(magnets)
 			if err != nil {
-				return nil, fmt.Errorf("merging magnet links: %w", err)
+				return nil, faults.Errorf("merging magnet links: %w", err)
 			}
 
 			providers := make([]string, 0, len(group))
@@ -338,7 +339,7 @@ func (c Search) Download(originalQuery string, magnetLink string) error {
 	model := c.repo.LoadDownload()
 	err := model.SetQueryAndLink(originalQuery, magnetLink)
 	if err != nil {
-		return fmt.Errorf("setting link: %w", err)
+		return faults.Errorf("setting link: %w", err)
 	}
 	c.repo.SaveDownload(model)
 
@@ -349,7 +350,7 @@ func (c Search) Download(originalQuery string, magnetLink string) error {
 
 func mergeMagnetLinks(links []string) (string, string, error) {
 	if len(links) == 0 {
-		return "", "", fmt.Errorf("no magnet links provided")
+		return "", "", faults.Errorf("no magnet links provided")
 	}
 
 	// Maps to store unique values for each component
@@ -361,7 +362,7 @@ func mergeMagnetLinks(links []string) (string, string, error) {
 	for _, link := range links {
 		u, err := url.Parse(link)
 		if err != nil {
-			return "", "", fmt.Errorf("failed to parse link (%s): %w", link, err)
+			return "", "", faults.Errorf("failed to parse link (%s): %w", link, err)
 		}
 
 		if strings.HasPrefix(u.Scheme, "http") {
@@ -376,12 +377,12 @@ func mergeMagnetLinks(links []string) (string, string, error) {
 
 			res, err := http.Get(link)
 			if err != nil {
-				return "", "", fmt.Errorf("failed to fetch link (%s): %w", link, err)
+				return "", "", faults.Errorf("failed to fetch link (%s): %w", link, err)
 			}
 			defer res.Body.Close()
 			if res.StatusCode != http.StatusTemporaryRedirect &&
 				res.StatusCode != http.StatusPermanentRedirect {
-				return "", "", fmt.Errorf("don't know how to handle non-magnet link: %s; Status Code: %d", link, res.StatusCode)
+				return "", "", faults.Errorf("don't know how to handle non-magnet link: %s; Status Code: %d", link, res.StatusCode)
 			}
 
 			link = res.Header.Get("Location")
@@ -389,7 +390,7 @@ func mergeMagnetLinks(links []string) (string, string, error) {
 
 		mag, err := magnet.Parse(link)
 		if err != nil {
-			return "", "", fmt.Errorf("failed to parse magnet link (%s): %w", link, err)
+			return "", "", faults.Errorf("failed to parse magnet link (%s): %w", link, err)
 		}
 
 		dns = append(dns, mag.DisplayName)
@@ -397,7 +398,7 @@ func mergeMagnetLinks(links []string) (string, string, error) {
 		if hash == "" {
 			hash = mag.Hash
 		} else if hash != mag.Hash {
-			return "", "", fmt.Errorf("different hashes found when merging: %s and %s", hash, mag.Hash)
+			return "", "", faults.Errorf("different hashes found when merging: %s and %s", hash, mag.Hash)
 		}
 
 		for _, value := range mag.Trackers {
@@ -410,7 +411,7 @@ func mergeMagnetLinks(links []string) (string, string, error) {
 	}
 
 	if hash == "" {
-		return "", "", fmt.Errorf("no hash (xt) found in magnet links")
+		return "", "", faults.Errorf("no hash (xt) found in magnet links")
 	}
 
 	// Determine the smallest `dn`

@@ -2,7 +2,8 @@ package model
 
 import (
 	"errors"
-	"fmt"
+
+	"github.com/quintans/faults"
 )
 
 var ErrInvalidPlayer = errors.New("invalid player")
@@ -22,7 +23,7 @@ func ParsePlayer(s string) (Player, error) {
 		}
 	}
 
-	return Player{}, fmt.Errorf("%w: %s", ErrInvalidPlayer, s)
+	return Player{}, faults.Errorf("%w: %s", ErrInvalidPlayer, s)
 }
 
 var (

@@ -1,6 +1,6 @@
 package model
 
-import "fmt"
+import "github.com/quintans/faults"
 
 type Download struct {
 	link          string
@@ -13,13 +13,13 @@ func NewDownload() *Download {
 
 func (m *Download) SetQueryAndLink(originalQuery, link string) error {
 	if link == "" {
-		return fmt.Errorf("link cannot be empty")
+		return faults.Errorf("link cannot be empty")
 	}
 	// TODO validate link. Logic is in client.
 	m.link = link
 
 	if originalQuery == "" {
-		return fmt.Errorf("originalQuery cannot be empty")
+		return faults.Errorf("originalQuery cannot be empty")
 	}
 	m.originalQuery = originalQuery
 

@@ -16,6 +16,7 @@ import (
 	"time"
 
 	"github.com/anacrolix/torrent"
+	"github.com/quintans/faults"
 	"github.com/quintans/torflix/internal/app"
 	"github.com/quintans/torflix/internal/lib/fails"
 	"github.com/quintans/torflix/internal/lib/https"
@@ -150,7 +151,7 @@ func (c *Download) onEnter() error {
 	var err error
 	c.client, err = c.torCliFact(model.Link())
 	if err != nil {
-		return fmt.Errorf("creating torrent client: %w", err)
+		return faults.Errorf("creating torrent client: %w", err)
 	}
 
 	files := c.client.GetFilteredFiles()
@@ -212,7 +213,7 @@ func (c *Download) playFile(file *torrent.File, fromList bool) error {
 	cleanedQuery, queryAndSeason, season, episode := c.getQueryComponents(file)
 	err := c.downloadSubtitles(file, cleanedQuery, queryAndSeason, season, episode)
 	if err != nil {
-		return fmt.Errorf("downloading subtitles: %w", err)
+		return faults.Errorf("downloading subtitles: %w", err)
 	}
 
 	c.fromList = fromList
@@ -245,7 +246,7 @@ func (c *Download) downloadSubtitles(file *torrent.File, cleanedQuery, queryAndS
 
 	settings, err := c.repo.LoadSettings()
 	if err != nil {
-		return fmt.Errorf("loading settings: %w", err)
+		return faults.Errorf("loading settings: %w", err)
 	}
 	if settings.OpenSubtitles.Username == "" {
 		return nil
@@ -253,7 +254,7 @@ func (c *Download) downloadSubtitles(file *torrent.File, cleanedQuery, queryAndS
 
 	secret, err := c.secrets.GetOpenSubtitles()
 	if err != nil {
-		return fmt.Errorf("getting OpenSubtitles password: %w", err)
+		return faults.Errorf("getting OpenSubtitles password: %w", err)
 	}
 	subtitlesClient := c.subtitlesClientFactory(settings.OpenSubtitles.Username, secret.Password)
 
@@ -266,13 +267,13 @@ func (c *Download) downloadSubtitles(file *torrent.File, cleanedQuery, queryAndS
 
 	err = os.MkdirAll(subsDir, os.ModePerm)
 	if err != nil {
-		return fmt.Errorf("creating subtitles directory: %w", err)
+		return faults.Errorf("creating subtitles directory: %w", err)
 	}
 
 	languages := settings.Languages()
 	subtitles, err := subtitlesClient.Search(cleanedQuery, season, episode, languages)
 	if err != nil {
-		return fmt.Errorf("searching subtitles: %w", err)
+		return faults.Errorf("searching subtitles: %w", err)
 	}
 
 	if len(subtitles) == 0 {
@@ -283,7 +284,7 @@ func (c *Download) downloadSubtitles(file *torrent.File, cleanedQuery, queryAndS
 
 	token, err := subtitlesClient.Login()
 	if err != nil {
-		return fmt.Errorf("login: %w", err)
+		return faults.Errorf("login: %w", err)
 	}
 
 	defer func() {
@@ -367,7 +368,7 @@ func saveSubtitleFile(downloadLink, fileName string) error {
 		if resp.StatusCode == http.StatusTooManyRequests {
 			return fails.New("too many requests for downloading subtitle", "retry-after", resp.Header.Get("Retry-After"))
 		}
-		return retry.NewPermanentError(fmt.Errorf("failed to fetch subtitle file, status code: %d", resp.StatusCode))
+		return retry.NewPermanentError(faults.Errorf("failed to fetch subtitle file, status code: %d", resp.StatusCode))
 	}
 
 	// Create a file locally to save the subtitle
@@ -392,7 +393,7 @@ func (c *Download) downloadTorrentFile(file *torrent.File, filename string) erro
 
 	settings, err := c.repo.LoadSettings()
 	if err != nil {
-		return fmt.Errorf("loading settings: %w", err)
+		return faults.Errorf("loading settings: %w", err)
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())

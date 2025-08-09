@@ -2,10 +2,10 @@ package repository
 
 import (
 	"encoding/json"
-	"fmt"
 	"os"
 	"path/filepath"
 
+	"github.com/quintans/faults"
 	"github.com/quintans/torflix/internal/lib/files"
 	"github.com/quintans/torflix/internal/model"
 )
@@ -38,7 +38,7 @@ func (d *DB) SaveSearch(search *model.Search) error {
 		SelectedProviders: search.SelectedProviders(),
 	})
 	if err != nil {
-		return fmt.Errorf("saving search: %w", err)
+		return faults.Errorf("saving search: %w", err)
 	}
 	d.search = search
 
@@ -50,7 +50,7 @@ func (d *DB) LoadSearch() (*model.Search, error) {
 		s := Search{}
 		err := d.read("search.json", &s)
 		if err != nil {
-			return nil, fmt.Errorf("loading search: %w", err)
+			return nil, faults.Errorf("loading search: %w", err)
 		}
 
 		search := model.NewSearch()
@@ -101,7 +101,7 @@ func (d *DB) SaveSettings(settings *model.Settings) error {
 		OpenSubtitles:  settings.OpenSubtitles,
 	})
 	if err != nil {
-		return fmt.Errorf("saving settings: %w", err)
+		return faults.Errorf("saving settings: %w", err)
 	}
 
 	d.settings = settings
@@ -114,12 +114,12 @@ func (d *DB) LoadSettings() (*model.Settings, error) {
 		settings := Settings{}
 		err := d.read("settings.json", &settings)
 		if err != nil {
-			return nil, fmt.Errorf("loading settings: %w", err)
+			return nil, faults.Errorf("loading settings: %w", err)
 		}
 
 		player, err := model.ParsePlayer(settings.Player)
 		if err != nil {
-			return nil, fmt.Errorf("parsing player: %w", err)
+			return nil, faults.Errorf("parsing player: %w", err)
 		}
 
 		s := model.NewSettings()
@@ -149,12 +149,12 @@ func (d *DB) LoadSettings() (*model.Settings, error) {
 func (d *DB) write(file string, data any) error {
 	b, err := json.MarshalIndent(data, "", "  ")
 	if err != nil {
-		return fmt.Errorf("marshalling data for '%s': %w", file, err)
+		return faults.Errorf("marshalling data for '%s': %w", file, err)
 	}
 
 	err = os.WriteFile(filepath.Join(d.dir, file), b, os.ModePerm)
 	if err != nil {
-		return fmt.Errorf("writing data for '%s': %w", file, err)
+		return faults.Errorf("writing data for '%s': %w", file, err)
 	}
 
 	return nil
@@ -167,12 +167,12 @@ func (d *DB) Exists(file string) bool {
 func (d *DB) read(file string, data any) error {
 	b, err := os.ReadFile(filepath.Join(d.dir, file))
 	if err != nil {
-		return fmt.Errorf("reading data for '%s': %w", file, err)
+		return faults.Errorf("reading data for '%s': %w", file, err)
 	}
 
 	err = json.Unmarshal(b, data)
 	if err != nil {
-		return fmt.Errorf("unmarshalling data for '%s': %w", file, err)
+		return faults.Errorf("unmarshalling data for '%s': %w", file, err)
 	}
 
 	return nil

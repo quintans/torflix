@@ -9,6 +9,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/quintans/faults"
 	"github.com/quintans/torflix/internal/app"
 	"github.com/quintans/torflix/internal/lib/https"
 	"github.com/quintans/torflix/internal/lib/retry"
@@ -83,7 +84,7 @@ func (o *OpenSubtitles) Login() (string, error) {
 	var loginResp LoginResponse
 	err := o.request(http.MethodPost, "/login", "", loginData, &loginResp)
 	if err != nil {
-		return "", fmt.Errorf("logging in: %w", err)
+		return "", faults.Errorf("logging in: %w", err)
 	}
 
 	return loginResp.Token, nil
@@ -93,7 +94,7 @@ func (o *OpenSubtitles) Login() (string, error) {
 func (o *OpenSubtitles) Logout(token string) error {
 	err := o.request(http.MethodDelete, "/logout", token, nil, nil)
 	if err != nil {
-		return fmt.Errorf("logging out: %w", err)
+		return faults.Errorf("logging out: %w", err)
 	}
 
 	return nil
@@ -147,7 +148,7 @@ func (o *OpenSubtitles) Search(query string, season, episode int, languages []st
 	var searchResp SearchResponse
 	err := o.request(http.MethodGet, uri, "", nil, &searchResp)
 	if err != nil {
-		return nil, fmt.Errorf("searching subtitles: %w", err)
+		return nil, faults.Errorf("searching subtitles: %w", err)
 	}
 
 	var subtitles []app.SubtitleAttributes
@@ -177,7 +178,7 @@ func (o *OpenSubtitles) Download(token string, fileID int) (app.DownloadResponse
 	var res app.DownloadResponse
 	err := o.request(http.MethodPost, "/download", token, body, &res)
 	if err != nil {
-		return res, fmt.Errorf("downloading subtitle: %w", err)
+		return res, faults.Errorf("downloading subtitle: %w", err)
 	}
 
 	return res, nil
@@ -197,7 +198,7 @@ func (o *OpenSubtitles) retryRequest(method, uri, token string, request any, res
 
 	err := o.client.Request(method, uri, request, response, header)
 	if err != nil {
-		return fmt.Errorf("requesting %s: %w", uri, err)
+		return faults.Errorf("requesting %s: %w", uri, err)
 	}
 
 	return nil

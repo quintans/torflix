@@ -8,6 +8,7 @@ require (
 	github.com/dustin/go-humanize v1.0.1
 	github.com/gocolly/colly/v2 v2.2.0
 	github.com/jpillora/scraper v0.3.0
+	github.com/quintans/faults v1.8.0
 	github.com/stretchr/testify v1.10.0
 	github.com/tidwall/gjson v1.6.8
 	github.com/zalando/go-keyring v0.2.6

@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/anacrolix/torrent"
+	"github.com/quintans/faults"
 	"github.com/quintans/torflix/internal/app"
 	"github.com/quintans/torflix/internal/lib/files"
 	"github.com/quintans/torflix/internal/lib/magnet"
@@ -53,7 +54,7 @@ type ClientConfig struct {
 func NewTorrentClient(cfg ClientConfig, torrentDir, mediaDir string, resource string) (*TorrentClient, error) {
 	torrentFile, err := checkIfTorrentExists(torrentDir, resource)
 	if err != nil {
-		return nil, fmt.Errorf("parsing magnet or torrent: %w", err)
+		return nil, faults.Errorf("parsing magnet or torrent: %w", err)
 	}
 	var torrentPath string
 	if torrentFile != "" {
@@ -67,7 +68,7 @@ func NewTorrentClient(cfg ClientConfig, torrentDir, mediaDir string, resource st
 
 	err = os.MkdirAll(mediaDir, os.ModePerm)
 	if err != nil {
-		return nil, fmt.Errorf("creating data directory: %w", err)
+		return nil, faults.Errorf("creating data directory: %w", err)
 	}
 
 	if cfg.DownloadAheadPercent == 0 {
@@ -92,7 +93,7 @@ func NewTorrentClient(cfg ClientConfig, torrentDir, mediaDir string, resource st
 	// Create client.
 	c, err = torrent.NewClient(torrentConfig)
 	if err != nil {
-		return client, fmt.Errorf("creating lib torrent client: %w", err)
+		return client, faults.Errorf("creating lib torrent client: %w", err)
 	}
 
 	client.Client = c
@@ -103,7 +104,7 @@ func NewTorrentClient(cfg ClientConfig, torrentDir, mediaDir string, resource st
 	// Add as magnet url.
 	if strings.HasPrefix(torrentPath, "magnet:") {
 		if t, err = c.AddMagnet(torrentPath); err != nil {
-			return client, fmt.Errorf("adding torrent: %w", err)
+			return client, faults.Errorf("adding torrent: %w", err)
 		}
 	} else {
 		// Otherwise add as a torrent file.
@@ -111,12 +112,12 @@ func NewTorrentClient(cfg ClientConfig, torrentDir, mediaDir string, resource st
 		// If it's online, we try downloading the file.
 		if isHTTP.MatchString(torrentPath) {
 			if torrentPath, err = downloadFile(mediaDir, torrentPath); err != nil {
-				return client, fmt.Errorf("downloading torrent file: %w", err)
+				return client, faults.Errorf("downloading torrent file: %w", err)
 			}
 		}
 
 		if t, err = c.AddTorrentFromFile(torrentPath); err != nil {
-			return client, fmt.Errorf("adding torrent '%s' to the client: %w", torrentPath, err)
+			return client, faults.Errorf("adding torrent '%s' to the client: %w", torrentPath, err)
 		}
 	}
 
@@ -128,7 +129,7 @@ func NewTorrentClient(cfg ClientConfig, torrentDir, mediaDir string, resource st
 	if torrentFile == "" {
 		err = saveTorrent(torrentDir, t)
 		if err != nil {
-			return nil, fmt.Errorf("saving torrent: %w", err)
+			return nil, faults.Errorf("saving torrent: %w", err)
 		}
 	}
 
@@ -138,7 +139,7 @@ func NewTorrentClient(cfg ClientConfig, torrentDir, mediaDir string, resource st
 func checkIfTorrentExists(torrentFileDir, torrentPath string) (string, error) {
 	m, err := magnet.Parse(torrentPath)
 	if err != nil {
-		return "", fmt.Errorf("parsing magnet: %w", err)
+		return "", faults.Errorf("parsing magnet: %w", err)
 	}
 
 	if m.InfoHash != "" {
@@ -155,7 +156,7 @@ func checkIfTorrentExists(torrentFileDir, torrentPath string) (string, error) {
 func saveTorrent(torrentFileDir string, t *torrent.Torrent) error {
 	err := os.MkdirAll(torrentFileDir, os.ModePerm)
 	if err != nil {
-		return fmt.Errorf("creating torrent directory: %w", err)
+		return faults.Errorf("creating torrent directory: %w", err)
 	}
 
 	hash := t.InfoHash().HexString()
@@ -164,14 +165,14 @@ func saveTorrent(torrentFileDir string, t *torrent.Torrent) error {
 
 	f, err := os.Create(file)
 	if err != nil {
-		return fmt.Errorf("creating torrent file: %w", err)
+		return faults.Errorf("creating torrent file: %w", err)
 	}
 	defer f.Close()
 
 	mi := t.Metainfo()
 	err = mi.Write(f)
 	if err != nil {
-		return fmt.Errorf("saving torrent: %w", err)
+		return faults.Errorf("saving torrent: %w", err)
 	}
 
 	return nil
@@ -191,7 +192,8 @@ func (c *TorrentClient) Play(file *torrent.File) {
 	firstPieceIndex := file.Offset() * int64(t.NumPieces()) / t.Length()
 	endPieceIndex := (file.Offset() + file.Length()) * int64(t.NumPieces()) / t.Length()
 	// Prioritize the first % of the file.
-	for idx := firstPieceIndex; idx <= endPieceIndex*c.Config.DownloadAheadPercent/100; idx++ {
+	firstPercentage := endPieceIndex * c.Config.DownloadAheadPercent / 200 // 0.5%
+	for idx := firstPieceIndex; idx <= firstPercentage; idx++ {
 		t.Piece(int(idx)).SetPriority(torrent.PiecePriorityNow)
 	}
 }
@@ -299,9 +301,9 @@ func (c TorrentClient) GetFilteredFiles() []*torrent.File {
 }
 
 // ReadyForPlayback checks if the torrent is ready for playback or not.
-// We wait until 1% of the torrent to start playing.
+// We wait until 0.5% of the torrent to start playing.
 func (c TorrentClient) ReadyForPlayback() bool {
-	percentage := float64(c.Progress) / float64(c.Size) * 100
+	percentage := float64(c.Progress) / float64(c.Size) * 200
 
 	return percentage > float64(c.Config.DownloadAheadPercent)
 }
