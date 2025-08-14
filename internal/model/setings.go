@@ -1,41 +1,8 @@
 package model
 
-import (
-	"errors"
-
-	"github.com/quintans/faults"
-)
-
-var ErrInvalidPlayer = errors.New("invalid player")
-
 type Player struct {
-	val string
-}
-
-func (t Player) String() string {
-	return t.val
-}
-
-func ParsePlayer(s string) (Player, error) {
-	for _, p := range Players {
-		if p.val == s {
-			return p, nil
-		}
-	}
-
-	return Player{}, faults.Errorf("%w: %s", ErrInvalidPlayer, s)
-}
-
-var (
-	MPV     = Player{"MPV"}
-	VLC     = Player{"VLC"}
-	MPlayer = Player{"MPlayer"}
-)
-
-var Players = []Player{
-	MPV,
-	VLC,
-	MPlayer,
+	Args []string `json:"args"`
+	Subs string   `json:"subs"`
 }
 
 type Settings struct {
@@ -58,8 +25,11 @@ type OpenSubtitles struct {
 
 func NewSettings() *Settings {
 	return &Settings{
-		port:              8080,
-		player:            MPV,
+		port: 8080,
+		player: Player{
+			Args: []string{"mpv", "--save-position-on-quit", "--sub-auto=all", "--profile=fast", "--hwdec=auto-safe"},
+			Subs: "--sub-file-paths=",
+		},
 		torrentPort:       50007,
 		seed:              true,
 		seedAfterComplete: false,

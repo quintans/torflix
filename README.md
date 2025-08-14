@@ -36,6 +36,21 @@ non-empty, else $HOME/.cache/torflix.
 
 You can override the cache directory by specifying $TORFLIX_CACHE_DIR
 
+## Troubleshooting
+
+On arch linux if you experience 4K stuttering install flatpak mpv and change the settings `player.args` from `"mpv"` to `"flatpak", "run", "io.mpv.Mpv"`:
+
+```
+{
+  ...
+  player": {
+    "args": ["flatpak", "run", "io.mpv.Mpv", ...],
+    "subs": ...
+  }
+  ...
+} 
+```
+
 ## Credits
 - [go-peerflix](https://github.com/Sioro-Neoku/go-peerflix) for the awesome example provided
 - [torrent](https://github.com/anacrolix/torrent) for the torrent client

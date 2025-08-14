@@ -73,7 +73,7 @@ func (d *DB) LoadDownload() *model.Download {
 type Settings struct {
 	TorrentPort             int                 `json:"torrentPort"`
 	Port                    int                 `json:"port"`
-	Player                  string              `json:"player"`
+	Player                  model.Player        `json:"player"`
 	Tcp                     bool                `json:"tcp"`
 	MaxConnections          int                 `json:"maxConnections"`
 	Seed                    bool                `json:"seed"`
@@ -91,7 +91,7 @@ func (d *DB) SaveSettings(settings *model.Settings) error {
 	err := d.write("settings.json", Settings{
 		TorrentPort:    settings.TorrentPort(),
 		Port:           settings.Port(),
-		Player:         settings.Player().String(),
+		Player:         settings.Player(),
 		Tcp:            settings.TCP(),
 		MaxConnections: settings.MaxConnections(),
 		Seed:           settings.Seed(),
@@ -117,16 +117,11 @@ func (d *DB) LoadSettings() (*model.Settings, error) {
 			return nil, faults.Errorf("loading settings: %w", err)
 		}
 
-		player, err := model.ParsePlayer(settings.Player)
-		if err != nil {
-			return nil, faults.Errorf("parsing player: %w", err)
-		}
-
 		s := model.NewSettings()
 		s.Hydrate(
 			settings.TorrentPort,
 			settings.Port,
-			player,
+			settings.Player,
 			settings.Tcp,
 			settings.MaxConnections,
 			settings.Seed,
