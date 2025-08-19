@@ -6,8 +6,11 @@ import (
 	"path/filepath"
 
 	"fyne.io/fyne/v2"
-	"fyne.io/fyne/v2/app"
+	"fyne.io/fyne/v2/container"
+	"fyne.io/fyne/v2/dialog"
+	"fyne.io/fyne/v2/widget"
 	"github.com/quintans/faults"
+	"github.com/quintans/torflix/internal/app"
 	gapp "github.com/quintans/torflix/internal/app"
 	"github.com/quintans/torflix/internal/controller"
 	"github.com/quintans/torflix/internal/gateways/eventbus"
@@ -18,9 +21,10 @@ import (
 	"github.com/quintans/torflix/internal/gateways/tor"
 	"github.com/quintans/torflix/internal/lib/bus"
 	"github.com/quintans/torflix/internal/lib/extractor"
-	"github.com/quintans/torflix/internal/lib/navigator"
+	"github.com/quintans/torflix/internal/lib/navigation"
 	"github.com/quintans/torflix/internal/model"
 	"github.com/quintans/torflix/internal/view"
+	"github.com/quintans/torflix/internal/viewmodel"
 )
 
 var (
@@ -180,7 +184,6 @@ func main() {
 
 	b := bus.New()
 	eventBus := eventbus.New(b)
-	nav := navigator.New(b)
 
 	openSubtitlesClientFactory := func(usr, pwd string) gapp.SubtitlesClient {
 		return opensubtitles.New(usr, pwd)
@@ -234,13 +237,20 @@ func main() {
 	bus.Register(b, appCtrl.OnNavigation)
 	bus.Register(b, downloadCtrl.ClearCache)
 	bus.Register(b, searchView.ClearCache)
-	bus.Register(b, appCtrl.ShowNotification)
-	bus.Register(b, appView.Loading)
+	bus.Register(b, createDialogListener(w))
 	bus.Register(b, onEscape)
 
 	appCtrl.OnEnter()
-	nav.Go(controller.SearchNavigation)
 
+	// Root container where screens are swapped
+	content := container.NewStack()
+
+	vm := &viewmodel.ViewModel{}
+
+	navigator := navigation.New[*viewmodel.ViewModel](content)
+	navigator.To(vm, view.App)
+
+	w.SetContent(content)
 	w.ShowAndRun()
 }
 
@@ -277,4 +287,33 @@ var escapeHandler func()
 
 func onEscape(e gapp.EscapeHandler) {
 	escapeHandler = e.Handler
+}
+
+func createDialogListener(w fyne.Window) func(msg app.Loading) {
+	inifiniteProgress := widget.NewProgressBarInfinite()
+	inifiniteProgress.Start()
+	// Custom content for the dialog
+	loadingText := widget.NewLabel("")
+	customContent := container.NewVBox(
+		loadingText,
+		inifiniteProgress,
+	)
+
+	// Create the dialog
+	loading := dialog.NewCustomWithoutButtons("Working...", customContent, w)
+	return func(evt app.Loading) {
+		if evt.Text != "" {
+			loadingText.SetText(evt.Text)
+		}
+
+		if evt.Show {
+			loading.Show()
+			return
+		}
+
+		if evt.Text == "" && !evt.Show {
+			loading.Hide()
+			loadingText.SetText("")
+		}
+	}
 }

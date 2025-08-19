@@ -62,14 +62,6 @@ func (d *DB) LoadSearch() (*model.Search, error) {
 	return d.search, nil
 }
 
-func (d *DB) SaveDownload(download *model.Download) {
-	d.download = download
-}
-
-func (d *DB) LoadDownload() *model.Download {
-	return d.download
-}
-
 type Settings struct {
 	TorrentPort             int                 `json:"torrentPort"`
 	Port                    int                 `json:"port"`

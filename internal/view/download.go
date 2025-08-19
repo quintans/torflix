@@ -12,39 +12,11 @@ import (
 	"github.com/dustin/go-humanize"
 	"github.com/quintans/torflix/internal/app"
 	"github.com/quintans/torflix/internal/components"
+	"github.com/quintans/torflix/internal/lib/navigation"
+	"github.com/quintans/torflix/internal/viewmodel"
 )
 
-type DownloadController interface {
-	Back()
-	OnEnter()
-	Play()
-}
-
-type Download struct {
-	showViewer ShowViewer
-	controller DownloadController
-
-	stream        *widget.Label
-	progress      *widget.Label
-	downloadSpeed *widget.Label
-	uploadSpeed   *widget.Label
-	seeders       *widget.Label
-	tracker       *components.PieceTracker
-
-	play *widget.Button
-}
-
-func NewDownload(showViewer ShowViewer) *Download {
-	return &Download{
-		showViewer: showViewer,
-	}
-}
-
-func (d *Download) SetController(controller DownloadController) {
-	d.controller = controller
-}
-
-func (v *Download) Show(torName string, subFile string) {
+func Download(vm *viewmodel.ViewModel, navigator *navigation.Navigator[*viewmodel.ViewModel]) (fyne.CanvasObject, func(bool)) {
 	v.stream = widget.NewLabel("")
 	v.progress = widget.NewLabel("")
 	v.downloadSpeed = widget.NewLabel("")

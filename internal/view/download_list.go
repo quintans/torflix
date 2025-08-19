@@ -6,7 +6,8 @@ import (
 	"fyne.io/fyne/v2/layout"
 	"fyne.io/fyne/v2/widget"
 	"github.com/dustin/go-humanize"
-	"github.com/quintans/torflix/internal/app"
+	"github.com/quintans/torflix/internal/lib/navigation"
+	"github.com/quintans/torflix/internal/viewmodel"
 )
 
 type DownloadListController interface {
@@ -14,24 +15,7 @@ type DownloadListController interface {
 	PlayFile(idx int)
 }
 
-type DownloadList struct {
-	showViewer ShowViewer
-	controller DownloadListController
-	eventBus   app.EventBus
-}
-
-func NewDownloadList(showViewer ShowViewer, eventBus app.EventBus) *DownloadList {
-	return &DownloadList{
-		showViewer: showViewer,
-		eventBus:   eventBus,
-	}
-}
-
-func (s *DownloadList) SetController(controller DownloadListController) {
-	s.controller = controller
-}
-
-func (s *DownloadList) Show(fileItems []app.FileItem) {
+func DownloadList(vm *viewmodel.ViewModel, navigator *navigation.Navigator[*viewmodel.ViewModel]) (fyne.CanvasObject, func(bool)) {
 	result := widget.NewList(
 		func() int {
 			return len(fileItems)

@@ -1,147 +1,163 @@
 package view
 
 import (
-	"log/slog"
+	"strconv"
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/container"
 	"fyne.io/fyne/v2/widget"
-	"github.com/quintans/torflix/internal/app"
 	"github.com/quintans/torflix/internal/components"
-	"github.com/quintans/torflix/internal/model"
+	"github.com/quintans/torflix/internal/lib/navigation"
+	"github.com/quintans/torflix/internal/viewmodel"
 )
 
-type SearchController interface {
-	Download(originalQuery string, magnetLink string) error
-	Search(query string, providers []string) ([]components.MagnetItem, error)
-	SearchModel() (*model.Search, error)
-}
+func Search(vm *viewmodel.ViewModel, navigator *navigation.Navigator[*viewmodel.ViewModel]) (fyne.CanvasObject, func(bool)) {
+	searchBtn := widget.NewButton("Search", nil)
+	searchBtn.Importance = widget.HighImportance
 
-type Search struct {
-	query  *widget.Entry
-	result *widget.List
+	query := widget.NewEntry()
+	query.SetPlaceHolder("Enter search...")
 
-	controller SearchController
-	data       []components.MagnetItem
-	showViewer ShowViewer
-}
-
-func NewSearch(showViewer ShowViewer) *Search {
-	return &Search{
-		showViewer: showViewer,
-	}
-}
-
-func (v *Search) SetController(controller SearchController) {
-	v.controller = controller
-}
-
-func (v *Search) Show(searchModel *model.Search, providers []string) {
-	search := widget.NewButton("Search", nil)
-	search.Importance = widget.HighImportance
-
-	v.query = widget.NewEntry()
-	v.query.Text = searchModel.Query()
-	v.query.SetPlaceHolder("Enter search...")
-
-	originalQuery := searchModel.Query()
-
-	if v.query.Text == "" {
-		search.Disable()
-	}
-
-	v.query.OnChanged = func(text string) {
+	vm.Search.Query.Bind(query.SetText)
+	query.OnChanged = func(text string) {
+		vm.Search.Query.Set(text)
 		if text == "" {
-			search.Disable()
+			searchBtn.Disable()
 		} else {
-			search.Enable()
+			searchBtn.Enable()
 		}
 	}
-	v.query.OnSubmitted = func(text string) {
-		if v.query.Text == "" {
+	query.OnSubmitted = func(text string) {
+		if query.Text == "" {
 			return
 		}
-		search.OnTapped()
+		searchBtn.OnTapped()
 	}
 
-	selectedProviders := searchModel.SelectedProviders()
-	pills := make([]*components.PillChoice, 0, len(providers))
+	var pills []*components.PillChoice
+	pillContainer := container.NewHBox()
+	unbindSearchProviders := vm.Search.SelectedProviders.Bind(func(selectedProviders map[string]bool) {
+		providers := vm.Search.Providers
+		pills = make([]*components.PillChoice, 0, len(providers))
 
-	pillCont := container.NewHBox()
-	for _, v := range providers {
-		selected, ok := selectedProviders[v]
-		if !ok {
-			selected = true
-		}
-		pill := components.NewPillChoice(v, selected)
-		pills = append(pills, pill)
-		pillCont.Add(pill)
-	}
-
-	search.OnTapped = func() {
-		search.Disable()
-
-		v.result.UnselectAll()
-		v.data = nil
-		v.result.Refresh()
-		providers := []string{}
-		for _, p := range pills {
-			if p.Selected() {
-				providers = append(providers, p.Text())
+		selection := map[string]bool{}
+		for _, v := range providers {
+			selected, ok := selectedProviders[v]
+			if !ok {
+				selected = true
 			}
+
+			if selected {
+				selection[v] = selected
+			}
+
+			pill := components.NewPillChoice(v, selected)
+			pill.OnSelected = func(selected bool) {
+				if selected {
+					selection[v] = selected
+				} else {
+					delete(selection, v)
+				}
+				vm.Search.SelectedProviders.Set(selection)
+			}
+			pills = append(pills, pill)
+			pillContainer.Add(pill)
 		}
+		vm.Search.SelectedProviders.Set(selection)
+	})
 
-		originalQuery = v.query.Text
-		items, err := v.controller.Search(v.query.Text, providers)
-		if err != nil {
-			slog.Error("Failed to search.", "error", err.Error())
-		} else {
-			v.data = items
-			v.result.Refresh()
-		}
-
-		search.Enable()
-	}
-
-	v.result = widget.NewList(
+	data := make([]components.MagnetItem, 0)
+	result := widget.NewList(
 		func() int {
-			return len(v.data)
+			return len(data)
 		},
 		func() fyne.CanvasObject {
 			return components.NewMagnetListItem()
 		},
 		func(i widget.ListItemID, o fyne.CanvasObject) {
-			o.(*components.MagnetListItem).SetData(v.data[i])
+			o.(*components.MagnetListItem).SetData(data[i])
 		},
 	)
-	v.result.OnSelected = func(id widget.ListItemID) {
-		v.result.Hide()
-		v.data[id].Cached = true
-		err := v.controller.Download(originalQuery, v.data[id].Magnet)
-		if err != nil {
-			slog.Error("Failed to download.", "error", err.Error())
-			v.result.Unselect(id)
+	result.OnSelected = func(id widget.ListItemID) {
+		result.Hide()
+		data[id].Cached = true
+		nav := vm.Search.Download(data[id].Magnet)
+		if navigate(vm, navigator, nav) {
+			return
 		}
-		v.result.Show()
+		result.Unselect(id)
+		result.Show()
 	}
 
-	v.showViewer.ShowView(container.NewBorder(
-		container.NewBorder(nil, pillCont, nil, search, v.query),
-		nil,
-		nil,
-		nil,
-		v.result,
-	))
-}
+	searchBtn.OnTapped = func() {
+		searchBtn.Disable()
 
-func (v *Search) OnExit() {
-	v.query = nil
-	v.result = nil
-}
+		result.UnselectAll()
 
-func (v *Search) ClearCache(_ app.ClearCache) {
-	for i := range v.data {
-		v.data[i].Cached = false
+		result.Refresh()
+		selectedProviders := []string{}
+		for _, p := range pills {
+			if p.Selected() {
+				selectedProviders = append(selectedProviders, p.Text())
+			}
+		}
+
+		nav := vm.Search.Search()
+		if navigate(vm, navigator, nav) {
+			return
+		}
+		searchBtn.Enable()
 	}
-	v.result.Refresh()
+
+	unbindSearchResult := vm.Search.SearchResults.Bind(func(results []*viewmodel.SearchData) {
+		items := make([]components.MagnetItem, len(results))
+		for i, r := range results {
+			items[i] = components.MagnetItem{
+				Provider: r.Provider,
+				Name:     r.Name,
+				Size:     r.Size,
+				Seeds:    strconv.Itoa(r.Seeds),
+				Magnet:   r.Magnet,
+				Cached:   r.Cached,
+				Quality:  r.QualityName,
+			}
+		}
+
+		data = items
+		result.Refresh()
+	})
+
+	unbindClearCache := vm.App.ClearCache.Bind(func(bool) {
+		for i := range data {
+			data[i].Cached = false
+		}
+		result.Refresh()
+	})
+
+	vm.Search.LoadSearch()
+
+	return container.NewBorder(
+			container.NewBorder(nil, pillContainer, nil, searchBtn, query),
+			nil,
+			nil,
+			nil,
+			result,
+		), func(bool) {
+			// Handle exit
+			unbindSearchProviders()
+			unbindSearchResult()
+			unbindClearCache()
+		}
+}
+
+func navigate(vm *viewmodel.ViewModel, navigator *navigation.Navigator[*viewmodel.ViewModel], destination viewmodel.DownloadType) bool {
+	switch destination {
+	case viewmodel.DownloadSingle:
+		navigator.To(vm, Download)
+	case viewmodel.DownloadMultiple:
+		navigator.To(vm, DownloadList)
+	default:
+		return false
+	}
+	return true
 }

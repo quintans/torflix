@@ -1,4 +1,4 @@
-package controller
+package services
 
 import (
 	"cmp"
@@ -22,7 +22,6 @@ import (
 	"github.com/quintans/torflix/internal/lib/https"
 	"github.com/quintans/torflix/internal/lib/retry"
 	"github.com/quintans/torflix/internal/lib/slices"
-	"github.com/quintans/torflix/internal/lib/timers"
 )
 
 const localhost = "http://localhost:%d/%s"
@@ -33,52 +32,35 @@ type (
 )
 
 type Download struct {
-	downloadListView       app.DownloadListView
-	downloadView           app.DownloadView
 	repo                   Repository
-	nav                    app.Navigator
 	client                 app.TorrentClient
 	shutdownServer         func()
-	closePlayer            func()
 	torCliFact             TorrentClientFactory
 	videoPlayer            app.VideoPlayer
 	subtitlesClientFactory OpenSubtitlesClientFactory
 	mediaDir               string
 	torrentsDir            string
 	subtitlesRootDir       string
-	subtitlesDir           string
-	servingFile            string
 
-	fromList bool
-	files    []fileItem
-	eventBus app.EventBus
-	secrets  app.Secrets
-}
-
-type fileItem struct {
-	file     *torrent.File
-	selected bool
+	secrets app.Secrets
 }
 
 func NewDownload(
 	downloadView app.DownloadView,
 	downloadListView app.DownloadListView,
 	repo Repository,
-	nav app.Navigator,
 	videoPlayer app.VideoPlayer,
 	torCliFact TorrentClientFactory,
 	subtitlesClientFactory OpenSubtitlesClientFactory,
 	mediaDir string,
 	torrentsDir string,
 	subtitlesDir string,
-	eventBus app.EventBus,
 	secrets app.Secrets,
 ) *Download {
 	return &Download{
 		downloadView:           downloadView,
 		downloadListView:       downloadListView,
 		repo:                   repo,
-		nav:                    nav,
 		closePlayer:            func() {},
 		shutdownServer:         func() {},
 		torCliFact:             torCliFact,
@@ -87,17 +69,11 @@ func NewDownload(
 		mediaDir:               mediaDir,
 		torrentsDir:            torrentsDir,
 		subtitlesRootDir:       subtitlesDir,
-		eventBus:               eventBus,
 		secrets:                secrets,
 	}
 }
 
 func (c *Download) Back() {
-	c.subtitlesDir = ""
-
-	c.closePlayer()
-	c.closePlayer = func() {}
-
 	c.shutdownServer()
 	c.shutdownServer = func() {}
 
@@ -110,10 +86,6 @@ func (c *Download) Back() {
 
 	c.client.Close()
 	c.client = nil
-
-	c.eventBus.Publish(app.EscapeHandler{})
-
-	c.nav.Back()
 }
 
 func (c *Download) showList() {
@@ -126,108 +98,136 @@ func (c *Download) showList() {
 	}))
 }
 
-func (c *Download) OnEnter() {
-	err := c.onEnter()
+func (c *Download) DownloadTorrent(query, link string) ([]*torrent.File, error) {
+	var err error
+	c.client, err = c.torCliFact(link)
 	if err != nil {
-		logAndPub(c.eventBus, err, "Something went wrong")
+		return nil, faults.Errorf("creating torrent client: %w", err)
 	}
+
+	return c.client.GetFilteredFiles(), nil
 }
 
-func (c *Download) onEnter() error {
-	d := timers.NewDebounce(time.Second, func() {
-		c.eventBus.Publish(app.Loading{
-			Text: "Downloading torrent metadata",
-			Show: true,
-		})
-	})
+func (c *Download) DownloadSubtitles(file *torrent.File, originalQuery string) (string, int, error) {
+	qc := c.getQueryComponents(file, originalQuery)
+	subsDir, downloaded, err := c.downloadSubtitles(file, qc)
 
-	defer func() {
-		d.Stop()
-		c.eventBus.Publish(app.Loading{}) // hide spinner
+	return subsDir, downloaded, faults.Wrapf(err, "downloading subtitles")
+}
+
+func (c *Download) ServeFile(ctx context.Context, asyncError app.AsyncError, file *torrent.File, originalQuery string) (string, error) {
+	qc := c.getQueryComponents(file, originalQuery)
+
+	c.downloadView.Show(file.Torrent().Name(), file.DisplayPath())
+
+	c.client.Play(file)
+
+	settings, err := c.repo.LoadSettings()
+	if err != nil {
+		return "", faults.Errorf("loading settings: %w", err)
+	}
+
+	go func() {
+		const interval = 2
+		fn := func() {
+			stats := c.client.Stats()
+			if stats.Pieces == nil || stats.ReadyForPlayback {
+				stats.Stream = fmt.Sprintf(localhost, settings.Port(), qc.queryAndSeason)
+			} else {
+				stats.Stream = "Not ready for playback"
+			}
+			// normalize speed
+			stats.DownloadSpeed = stats.DownloadSpeed / interval
+			stats.UploadSpeed = stats.UploadSpeed / interval
+
+			c.downloadView.SetStats(stats)
+		}
+		fn()
+
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-time.After(interval * time.Second):
+				fn()
+			}
+		}
 	}()
 
-	model := c.repo.LoadDownload()
+	mux := http.NewServeMux()
+	mux.HandleFunc("/"+qc.queryAndSeason, c.client.GetFile(qc.queryAndSeason))
 
-	var err error
-	c.client, err = c.torCliFact(model.Link())
-	if err != nil {
-		return faults.Errorf("creating torrent client: %w", err)
+	server := &http.Server{
+		Addr:    ":" + strconv.Itoa(settings.Port()),
+		Handler: mux,
 	}
 
-	files := c.client.GetFilteredFiles()
-	if len(files) == 0 {
-		c.eventBus.Warn("No media files found")
-		c.Back()
-		return nil
-	}
-
-	c.eventBus.Publish(app.EscapeHandler{
-		Handler: func() {
-			c.Back()
-		},
-	})
-
-	if len(files) == 1 {
-		return c.playFile(files[0], false)
-	}
-
-	gslices.SortFunc(files, func(i, j *torrent.File) int {
-		return cmp.Compare(i.DisplayPath(), j.DisplayPath())
-	})
-
-	c.files = slices.Map(files, func(file *torrent.File) fileItem {
-		file.BytesCompleted()
-		return fileItem{
-			file:     file,
-			selected: file.BytesCompleted() >= file.Length(),
+	go func() {
+		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			asyncError(err, "Failed to serve file")
 		}
-	})
-	c.showList()
+	}()
+
+	go func() {
+		<-ctx.Done()
+		ctx2, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		if err := server.Shutdown(ctx2); err != nil {
+			asyncError(err, "Failed to shutdown server")
+		}
+	}()
+
+	return qc.queryAndSeason, nil
+}
+
+func (c *Download) Play(ctx context.Context, asyncError app.AsyncError, servingFile, subtitlesDir string) error {
+	c.downloadView.DisablePlay()
+
+	settings, err := c.repo.LoadSettings()
+	if err != nil {
+		return faults.Errorf("loading settings on play: %w", err)
+	}
+
+	go func() {
+		for {
+			if c.client == nil {
+				return
+			}
+
+			if c.client.ReadyForPlayback() {
+				break
+			}
+
+			select {
+			case <-ctx.Done():
+				return
+			case <-time.After(time.Second):
+			}
+		}
+
+		err := c.videoPlayer.Open(ctx, settings.Player(), fmt.Sprintf(localhost, settings.Port(), servingFile), subtitlesDir)
+		if err != nil {
+			asyncError(err, "Failed to open player")
+		}
+
+		c.downloadView.EnablePlay()
+	}()
 
 	return nil
 }
 
-func (c *Download) PlayFile(findex int) {
-	c.files[findex].selected = true
-
-	file := c.files[findex].file
-	d := timers.NewDebounce(time.Second, func() {
-		c.eventBus.Publish(app.Loading{
-			Show: true,
-		})
-	})
-
-	defer func() {
-		d.Stop()
-		c.eventBus.Publish(app.Loading{}) // hide spinner
-	}()
-
-	err := c.playFile(file, true)
-	if err != nil {
-		logAndPub(c.eventBus, err, "Failed to play file")
-		return
-	}
+type queryComponents struct {
+	cleanedQuery   string
+	queryAndSeason string
+	season         int
+	episode        int
 }
 
-func (c *Download) playFile(file *torrent.File, fromList bool) error {
-	cleanedQuery, queryAndSeason, season, episode := c.getQueryComponents(file)
-	err := c.downloadSubtitles(file, cleanedQuery, queryAndSeason, season, episode)
-	if err != nil {
-		return faults.Errorf("downloading subtitles: %w", err)
-	}
+func (c *Download) getQueryComponents(file *torrent.File, originalQuery string) queryComponents {
+	season, episode := extractSeasonEpisode(file.DisplayPath())
+	cleanedQuery := extractTitle(originalQuery)
 
-	c.fromList = fromList
-	return c.downloadTorrentFile(file, queryAndSeason)
-}
-
-func (c *Download) getQueryComponents(file *torrent.File) (cleanedQuery, queryAndSeason string, season, episode int) {
-	model := c.repo.LoadDownload()
-	query := model.OriginalQuery()
-
-	season, episode = extractSeasonEpisode(file.DisplayPath())
-	cleanedQuery = extractTitle(query)
-
-	queryAndSeason = strings.ReplaceAll(cleanedQuery, " ", "_")
+	queryAndSeason := strings.ReplaceAll(cleanedQuery, " ", "_")
 	if season > 0 {
 		if episode == 0 {
 			queryAndSeason = queryAndSeason + fmt.Sprintf("_%02d", season)
@@ -236,61 +236,64 @@ func (c *Download) getQueryComponents(file *torrent.File) (cleanedQuery, queryAn
 		}
 	}
 
-	return
+	return queryComponents{
+		cleanedQuery:   cleanedQuery,
+		queryAndSeason: queryAndSeason,
+		season:         season,
+		episode:        episode,
+	}
 }
 
-func (c *Download) downloadSubtitles(file *torrent.File, cleanedQuery, queryAndSeason string, season, episode int) error {
+func (c *Download) downloadSubtitles(file *torrent.File, qc queryComponents) (string, int, error) {
 	c.eventBus.Publish(app.Loading{
 		Text: "Downloading subtitles",
 	})
 
 	settings, err := c.repo.LoadSettings()
 	if err != nil {
-		return faults.Errorf("loading settings: %w", err)
+		return "", 0, faults.Errorf("loading settings: %w", err)
 	}
 	if settings.OpenSubtitles.Username == "" {
-		return nil
+		return "", 0, nil
 	}
 
 	secret, err := c.secrets.GetOpenSubtitles()
 	if err != nil {
-		return faults.Errorf("getting OpenSubtitles password: %w", err)
+		return "", 0, faults.Errorf("getting OpenSubtitles password: %w", err)
 	}
 	subtitlesClient := c.subtitlesClientFactory(settings.OpenSubtitles.Username, secret.Password)
 
-	subsDir := filepath.Join(c.subtitlesRootDir, queryAndSeason)
-	c.subtitlesDir = subsDir
+	subsDir := filepath.Join(c.subtitlesRootDir, qc.queryAndSeason)
 	// if subtitles already exist we will use it
 	if _, err := os.Stat(subsDir); err == nil {
-		return nil
+		return subsDir, -1, nil
 	}
 
 	err = os.MkdirAll(subsDir, os.ModePerm)
 	if err != nil {
-		return faults.Errorf("creating subtitles directory: %w", err)
+		return "", 0, faults.Errorf("creating subtitles directory: %w", err)
 	}
 
 	languages := settings.Languages()
-	subtitles, err := subtitlesClient.Search(cleanedQuery, season, episode, languages)
+	subtitles, err := subtitlesClient.Search(qc.cleanedQuery, qc.season, qc.episode, languages)
 	if err != nil {
-		return faults.Errorf("searching subtitles: %w", err)
+		return "", 0, faults.Errorf("searching subtitles: %w", err)
 	}
 
 	if len(subtitles) == 0 {
-		c.subtitlesDir = ""
 		c.eventBus.Info("No subtitles found")
-		return nil
+		return "", 0, nil
 	}
 
 	token, err := subtitlesClient.Login()
 	if err != nil {
-		return faults.Errorf("login: %w", err)
+		return "", 0, faults.Errorf("login: %w", err)
 	}
 
 	defer func() {
 		err := subtitlesClient.Logout(token)
 		if err != nil {
-			logAndPub(c.eventBus, err, "Failed to logout")
+			slog.Error("Failed to logout from OpenSubtitles", "error", fmt.Sprintf("%+v", err))
 		}
 	}()
 
@@ -302,10 +305,10 @@ func (c *Download) downloadSubtitles(file *torrent.File, cleanedQuery, queryAndS
 		)
 	})
 
-	qry := strings.ToLower(cleanedQuery)
+	qry := strings.ToLower(qc.cleanedQuery)
 	tokens := strings.Split(qry, " ")
 
-	downloaded := 1
+	downloaded := 0
 	for _, sub := range subtitles {
 		if !wordMatch(tokens, sub.Filename) {
 			continue
@@ -326,12 +329,12 @@ func (c *Download) downloadSubtitles(file *torrent.File, cleanedQuery, queryAndS
 
 		downloaded++
 		// Download only the first 10 subtitles
-		if downloaded > 10 {
+		if downloaded >= 10 {
 			break
 		}
 	}
 
-	return nil
+	return subsDir, downloaded, nil
 }
 
 func wordMatch(tokens []string, name string) bool {
@@ -384,111 +387,6 @@ func saveSubtitleFile(downloadLink, fileName string) error {
 	}
 
 	return nil
-}
-
-func (c *Download) downloadTorrentFile(file *torrent.File, filename string) error {
-	c.downloadView.Show(file.Torrent().Name(), file.DisplayPath())
-
-	c.client.Play(file)
-
-	settings, err := c.repo.LoadSettings()
-	if err != nil {
-		return faults.Errorf("loading settings: %w", err)
-	}
-
-	ctx, cancel := context.WithCancel(context.Background())
-	go func() {
-		const interval = 2
-		fn := func() {
-			stats := c.client.Stats()
-			if stats.Pieces == nil || stats.ReadyForPlayback {
-				stats.Stream = fmt.Sprintf(localhost, settings.Port(), c.servingFile)
-			} else {
-				stats.Stream = "Not ready for playback"
-			}
-			// normalize speed
-			stats.DownloadSpeed = stats.DownloadSpeed / interval
-			stats.UploadSpeed = stats.UploadSpeed / interval
-
-			c.downloadView.SetStats(stats)
-		}
-		fn()
-
-		ticker := time.NewTicker(interval * time.Second)
-		defer ticker.Stop()
-		for {
-			select {
-			case <-ctx.Done():
-				return
-			case <-ticker.C:
-				fn()
-			}
-		}
-	}()
-
-	mux := http.NewServeMux()
-	mux.HandleFunc("/"+filename, c.client.GetFile(filename))
-
-	server := &http.Server{
-		Addr:    ":" + strconv.Itoa(settings.Port()),
-		Handler: mux,
-	}
-
-	go func() {
-		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-			logAndPub(c.eventBus, err, "Failed to serve file")
-		}
-	}()
-
-	c.shutdownServer = func() {
-		cancel()
-
-		go func() {
-			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-			defer cancel()
-			if err := server.Shutdown(ctx); err != nil {
-				logAndPub(c.eventBus, err, "Failed to shutdown server")
-			}
-		}()
-	}
-
-	c.servingFile = filename
-	c.Play()
-
-	return nil
-}
-
-func (c *Download) Play() {
-	c.downloadView.DisablePlay()
-
-	settings, err := c.repo.LoadSettings()
-	if err != nil {
-		logAndPub(c.eventBus, err, "Failed to load settings on Play")
-	}
-
-	ctx, cancel := context.WithCancel(context.Background())
-	go func() {
-		for {
-			if c.client == nil {
-				return
-			}
-
-			if c.client.ReadyForPlayback() {
-				break
-			}
-
-			time.Sleep(time.Second)
-		}
-
-		err := c.videoPlayer.Open(ctx, settings.Player(), fmt.Sprintf(localhost, settings.Port(), c.servingFile), c.subtitlesDir)
-		if err != nil {
-			logAndPub(c.eventBus, err, "Failed to open player")
-		}
-
-		c.downloadView.EnablePlay()
-	}()
-
-	c.closePlayer = cancel
 }
 
 var MediaExtensions = []string{".mp4", ".mkv", ".avi", ".mov", ".flv", ".wmv", ".webm"}

@@ -10,47 +10,16 @@ import (
 )
 
 const (
-	Version = "0.1"
+	Version = "0.2"
 	Name    = "torflix"
 )
 
-type Controller interface {
-	OnEnter()
-}
-
-type Navigator interface {
-	Go(string)
-	Back()
-}
-
 type EventBus interface {
 	Publish(m Message)
-	Error(msg string, args ...any)
-	Warn(msg string, args ...any)
-	Success(msg string, args ...any)
-	Info(msg string, args ...any)
 }
 
 type Message interface {
 	Kind() string
-}
-
-type AppView interface {
-	Show(AppData)
-	ShowNotification(evt Notify)
-	DisableAllTabsButSettings()
-	EnableTabs(bool)
-	Loading(Loading)
-}
-
-type AppData struct {
-	CacheDir      string
-	OpenSubtitles OpenSubtitles
-}
-
-type OpenSubtitles struct {
-	Username string
-	Password string
 }
 
 type DownloadView interface {
@@ -130,3 +99,5 @@ type Secrets interface {
 type OpenSubtitlesSecret struct {
 	Password string `json:"password"`
 }
+
+type AsyncError func(err error, message string, args ...any)
