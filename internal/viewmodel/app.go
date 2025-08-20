@@ -38,11 +38,11 @@ type App struct {
 func NewApp(service AppService) *App {
 	return &App{
 		service:          service,
-		ClearCache:       bind.New[bool](),
+		ClearCache:       bind.NewNotifier[bool](),
 		CacheDir:         binding.NewString(),
 		OSUsername:       bind.New[string](),
 		OSPassword:       bind.New[string](),
-		ShowNotification: bind.New[app.Notify](),
+		ShowNotification: bind.NewNotifier[app.Notify](),
 	}
 }
 

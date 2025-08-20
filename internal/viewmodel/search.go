@@ -16,8 +16,7 @@ import (
 	"github.com/quintans/torflix/internal/app"
 	"github.com/quintans/torflix/internal/lib/bind"
 	"github.com/quintans/torflix/internal/lib/magnet"
-	"github.com/quintans/torflix/internal/lib/slices"
-	"github.com/quintans/torflix/internal/lib/timers"
+	"github.com/quintans/torflix/internal/lib/timer"
 	"github.com/quintans/torflix/internal/model"
 )
 
@@ -113,7 +112,7 @@ func (s *Search) Search() DownloadType {
 		return s.Download(query)
 	}
 
-	d := timers.NewDebounce(time.Second, func() {
+	d := timer.New(time.Second, func() {
 		s.root.eventBus.Publish(app.Loading{
 			Text: "Searching torrents",
 			Show: true,
@@ -173,7 +172,7 @@ func (s *Search) Search() DownloadType {
 }
 
 func (s *Search) Download(magnetLink string) DownloadType {
-	d := timers.NewDebounce(time.Second, func() {
+	t := timer.New(time.Second, func() {
 		s.root.eventBus.Publish(app.Loading{
 			Text: "Downloading torrent metadata",
 			Show: true,
@@ -181,11 +180,11 @@ func (s *Search) Download(magnetLink string) DownloadType {
 	})
 
 	defer func() {
-		d.Stop()
+		t.Stop()
 		s.root.eventBus.Publish(app.Loading{}) // hide spinner
 	}()
 
-	files, err := s.downloadService.Download(s.originalQuery, magnetLink)
+	files, err := s.downloadService.DownloadTorrent(s.originalQuery, magnetLink)
 	if err != nil {
 		s.root.App.logAndPub(err, "Failed to download torrent metadata")
 		return 0
@@ -197,10 +196,7 @@ func (s *Search) Download(magnetLink string) DownloadType {
 	}
 
 	if len(files) == 1 {
-		s.root.Download.FileToPlay = &FileItem{
-			File:     files[0],
-			Selected: true,
-		}
+		s.root.Download.Init(files[0], s.originalQuery)
 		return DownloadSingle
 	}
 
@@ -208,13 +204,7 @@ func (s *Search) Download(magnetLink string) DownloadType {
 		return cmp.Compare(i.DisplayPath(), j.DisplayPath())
 	})
 
-	s.root.DownloadList.Files = slices.Map(files, func(file *torrent.File) *FileItem {
-		file.BytesCompleted()
-		return &FileItem{
-			File:     file,
-			Selected: file.BytesCompleted() >= file.Length(),
-		}
-	})
+	s.root.DownloadList.SetFiles(files)
 
 	return DownloadMultiple
 }

@@ -29,16 +29,6 @@ type DownloadView interface {
 	DisablePlay()
 }
 
-type DownloadListView interface {
-	Show(files []FileItem)
-}
-
-type FileItem struct {
-	Name     string
-	Size     int64
-	Selected bool
-}
-
 type Stats struct {
 	Stream           string
 	ReadyForPlayback bool

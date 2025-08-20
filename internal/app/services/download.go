@@ -21,7 +21,6 @@ import (
 	"github.com/quintans/torflix/internal/lib/fails"
 	"github.com/quintans/torflix/internal/lib/https"
 	"github.com/quintans/torflix/internal/lib/retry"
-	"github.com/quintans/torflix/internal/lib/slices"
 )
 
 const localhost = "http://localhost:%d/%s"
@@ -34,7 +33,6 @@ type (
 type Download struct {
 	repo                   Repository
 	client                 app.TorrentClient
-	shutdownServer         func()
 	torCliFact             TorrentClientFactory
 	videoPlayer            app.VideoPlayer
 	subtitlesClientFactory OpenSubtitlesClientFactory
@@ -46,8 +44,6 @@ type Download struct {
 }
 
 func NewDownload(
-	downloadView app.DownloadView,
-	downloadListView app.DownloadListView,
 	repo Repository,
 	videoPlayer app.VideoPlayer,
 	torCliFact TorrentClientFactory,
@@ -58,11 +54,7 @@ func NewDownload(
 	secrets app.Secrets,
 ) *Download {
 	return &Download{
-		downloadView:           downloadView,
-		downloadListView:       downloadListView,
 		repo:                   repo,
-		closePlayer:            func() {},
-		shutdownServer:         func() {},
 		torCliFact:             torCliFact,
 		videoPlayer:            videoPlayer,
 		subtitlesClientFactory: subtitlesClientFactory,
@@ -73,29 +65,13 @@ func NewDownload(
 	}
 }
 
-func (c *Download) Back() {
-	c.shutdownServer()
-	c.shutdownServer = func() {}
-
-	if c.fromList {
-		c.client.PauseTorrent()
-		c.showList()
-		c.fromList = false
-		return
-	}
-
-	c.client.Close()
-	c.client = nil
+func (c *Download) Pause() {
+	c.client.PauseTorrent()
 }
 
-func (c *Download) showList() {
-	c.downloadListView.Show(slices.Map(c.files, func(it fileItem) app.FileItem {
-		return app.FileItem{
-			Name:     it.file.DisplayPath(),
-			Size:     it.file.Length(),
-			Selected: it.selected,
-		}
-	}))
+func (c *Download) Close() {
+	c.client.Close()
+	c.client = nil
 }
 
 func (c *Download) DownloadTorrent(query, link string) ([]*torrent.File, error) {
@@ -115,7 +91,13 @@ func (c *Download) DownloadSubtitles(file *torrent.File, originalQuery string) (
 	return subsDir, downloaded, faults.Wrapf(err, "downloading subtitles")
 }
 
-func (c *Download) ServeFile(ctx context.Context, asyncError app.AsyncError, file *torrent.File, originalQuery string) (string, error) {
+func (c *Download) ServeFile(
+	ctx context.Context,
+	asyncError app.AsyncError,
+	file *torrent.File,
+	originalQuery string,
+	setStats func(app.Stats),
+) (string, error) {
 	qc := c.getQueryComponents(file, originalQuery)
 
 	c.downloadView.Show(file.Torrent().Name(), file.DisplayPath())
@@ -140,7 +122,7 @@ func (c *Download) ServeFile(ctx context.Context, asyncError app.AsyncError, fil
 			stats.DownloadSpeed = stats.DownloadSpeed / interval
 			stats.UploadSpeed = stats.UploadSpeed / interval
 
-			c.downloadView.SetStats(stats)
+			setStats(stats)
 		}
 		fn()
 

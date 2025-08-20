@@ -17,20 +17,23 @@ import (
 )
 
 func Download(vm *viewmodel.ViewModel, navigator *navigation.Navigator[*viewmodel.ViewModel]) (fyne.CanvasObject, func(bool)) {
-	v.stream = widget.NewLabel("")
-	v.progress = widget.NewLabel("")
-	v.downloadSpeed = widget.NewLabel("")
-	v.uploadSpeed = widget.NewLabel("")
-	v.seeders = widget.NewLabel("")
+	stream := widget.NewLabel("")
+	progress := widget.NewLabel("")
+	downloadSpeed := widget.NewLabel("")
+	uploadSpeed := widget.NewLabel("")
+	seeders := widget.NewLabel("")
 
-	v.play = widget.NewButton("Play", func() {
-		v.controller.Play()
-	})
-	v.play.Importance = widget.HighImportance
-	v.play.Disable()
+	play := widget.NewButton("Play", nil)
+	play.OnTapped = func() {
+		if vm.Download.Play() {
+			play.Disable()
+		}
+	}
+	play.Importance = widget.HighImportance
+	play.Disable()
 
 	back := widget.NewButton("Back", func() {
-		v.controller.Back()
+		navigator.Back(vm)
 	})
 
 	widgets := []fyne.CanvasObject{}
@@ -44,86 +47,69 @@ func Download(vm *viewmodel.ViewModel, navigator *navigation.Navigator[*viewmode
 		widgets = append(widgets, sf, widget.NewLabel(subFile))
 	}
 
-	progress := canvas.NewText("Progress", color.White)
-	progress.Alignment = fyne.TextAlignTrailing
-	widgets = append(widgets, progress, v.progress)
+	progressTxt := canvas.NewText("Progress", color.White)
+	progressTxt.Alignment = fyne.TextAlignTrailing
+	widgets = append(widgets, progressTxt, progress)
 
 	down := canvas.NewText("Download speed", color.White)
 	down.Alignment = fyne.TextAlignTrailing
-	widgets = append(widgets, down, v.downloadSpeed)
+	widgets = append(widgets, down, downloadSpeed)
 
 	up := canvas.NewText("Upload speed", color.White)
 	up.Alignment = fyne.TextAlignTrailing
-	widgets = append(widgets, up, v.uploadSpeed)
+	widgets = append(widgets, up, uploadSpeed)
 
-	seeders := canvas.NewText("Seeders", color.White)
-	seeders.Alignment = fyne.TextAlignTrailing
-	widgets = append(widgets, seeders, v.seeders)
+	seedersTxt := canvas.NewText("Seeders", color.White)
+	seedersTxt.Alignment = fyne.TextAlignTrailing
+	widgets = append(widgets, seedersTxt, seeders)
 
-	stream := canvas.NewText("Stream", color.White)
-	stream.Alignment = fyne.TextAlignTrailing
-	widgets = append(widgets, stream, v.stream)
+	streamTxt := canvas.NewText("Stream", color.White)
+	streamTxt.Alignment = fyne.TextAlignTrailing
+	widgets = append(widgets, streamTxt, stream)
 
-	v.tracker = components.NewPieceTracker(nil)
+	tracker := components.NewPieceTracker(nil)
+
+	unbindStats := vm.Download.Status.Bind(func(stats app.Stats) {
+		if stats.Pieces == nil {
+			return
+		}
+
+		stream.SetText(stats.Stream)
+
+		if stats.Size > 0 {
+			percentage := float64(stats.Complete) / float64(stats.Size) * 100
+			complete := humanize.Bytes(uint64(stats.Complete))
+			size := humanize.Bytes(uint64(stats.Size))
+			progress.SetText(fmt.Sprintf("%s / %s  %.2f%%", complete, size, percentage))
+		}
+
+		if stats.Done {
+			downloadSpeed.SetText("Download complete")
+		} else {
+			downloadSpeed.SetText(humanize.Bytes(uint64(stats.DownloadSpeed)) + "/s")
+		}
+		uploadSpeed.SetText(humanize.Bytes(uint64(stats.UploadSpeed)) + "/s")
+		seeders.SetText(fmt.Sprintf("%d", stats.Seeders))
+
+		tracker.SetPieces(stats.Pieces)
+	})
+
+	vm.Download.Play()
 
 	content := container.NewVBox(
 		container.New(layout.NewFormLayout(), widgets...),
-		v.tracker,
+		tracker,
 		container.NewHBox(
 			layout.NewSpacer(),
-			v.play,
+			play,
 			layout.NewSpacer(),
 			back,
 			layout.NewSpacer(),
 		),
 	)
-	v.showViewer.ShowView(content)
-}
+	return content, func(bool) {
+		unbindStats()
 
-func (v *Download) OnEnter() {
-	v.controller.OnEnter()
-}
-
-func (v *Download) OnExit() {
-	v.stream = nil
-	v.progress = nil
-	v.downloadSpeed = nil
-	v.uploadSpeed = nil
-	v.seeders = nil
-	v.tracker = nil
-
-	v.play = nil
-}
-
-func (v *Download) SetStats(stats app.Stats) {
-	if stats.Pieces == nil {
-		return
+		vm.Download.Back()
 	}
-
-	v.stream.SetText(stats.Stream)
-
-	if stats.Size > 0 {
-		percentage := float64(stats.Complete) / float64(stats.Size) * 100
-		complete := humanize.Bytes(uint64(stats.Complete))
-		size := humanize.Bytes(uint64(stats.Size))
-		v.progress.SetText(fmt.Sprintf("%s / %s  %.2f%%", complete, size, percentage))
-	}
-
-	if stats.Done {
-		v.downloadSpeed.SetText("Download complete")
-	} else {
-		v.downloadSpeed.SetText(humanize.Bytes(uint64(stats.DownloadSpeed)) + "/s")
-	}
-	v.uploadSpeed.SetText(humanize.Bytes(uint64(stats.UploadSpeed)) + "/s")
-	v.seeders.SetText(fmt.Sprintf("%d", stats.Seeders))
-
-	v.tracker.SetPieces(stats.Pieces)
-}
-
-func (v *Download) EnablePlay() {
-	v.play.Enable()
-}
-
-func (v *Download) DisablePlay() {
-	v.play.Disable()
 }

@@ -21,6 +21,7 @@ type Bind[T any] struct {
 	mu        sync.RWMutex
 	listeners sync.Map // map[Handler[T]]struct{}
 	value     T
+	set       bool // indicates if the value has been set
 	equal     func(T, T) bool
 }
 
@@ -70,11 +71,17 @@ func NewWithEqual[T any](equal func(T, T) bool) *Bind[T] {
 	}
 }
 
+func NewNotifier[T any]() *Bind[T] {
+	return &Bind[T]{}
+}
+
 func (b *Bind[T]) Bind(h func(T)) func() {
 	hh := &handle[T]{fn: h}
 
 	b.mu.RLock()
-	h(b.value) // call on bind
+	if b.set {
+		h(b.value) // call on bind
+	}
 	b.mu.RUnlock()
 
 	b.listeners.Store(hh, struct{}{})
@@ -86,7 +93,7 @@ func (b *Bind[T]) Bind(h func(T)) func() {
 
 func (b *Bind[T]) Set(value T) {
 	b.mu.RLock()
-	if b.equal(b.value, value) {
+	if b.equal == nil || b.equal(b.value, value) {
 		b.mu.RUnlock()
 		return
 	}
@@ -98,6 +105,7 @@ func (b *Bind[T]) Set(value T) {
 func (b *Bind[T]) Notify(value T) {
 	b.mu.Lock()
 	b.value = value
+	b.set = true // mark as set
 	b.mu.Unlock()
 
 	b.listeners.Range(func(k, _ any) bool {
