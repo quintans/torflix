@@ -33,11 +33,9 @@ func App(vm *viewmodel.ViewModel, _ *navigation.Navigator[*viewmodel.ViewModel])
 
 	enableTabs := func(u, p string) {
 		if u != "" && p != "" {
-			tabs.SelectIndex(0)
-			appEnableTabs(tabs, true)
+			appEnableAllTabs(tabs)
 			return
 		}
-
 		appDisableAllTabsButSettings(tabs)
 	}
 	unbindUsername := vm.App.OSUsername.Bind(func(s string) {
@@ -120,24 +118,22 @@ func appAddSubtitlesSection(sections *fyne.Container, vm *viewmodel.ViewModel) f
 }
 
 func appDisableAllTabsButSettings(tabs *container.AppTabs) {
-	tabs.SelectIndex(len(tabs.Items) - 1)
-	appEnableTabs(tabs, false)
-}
-
-func appEnableTabs(tabs *container.AppTabs, enable bool) {
-	cur := tabs.SelectedIndex()
-
+	settingsIdx := len(tabs.Items) - 1
+	tabs.SelectIndex(settingsIdx)
 	for k := range len(tabs.Items) {
-		if k == cur {
+		if k == settingsIdx {
 			continue
 		}
 
-		if enable {
-			tabs.EnableIndex(k)
-		} else {
-			tabs.DisableIndex(k)
-		}
+		tabs.DisableIndex(k)
 	}
+}
+
+func appEnableAllTabs(tabs *container.AppTabs) {
+	for k := range len(tabs.Items) {
+		tabs.EnableIndex(k)
+	}
+	tabs.SelectIndex(0)
 }
 
 func showNotification(notification *mycontainer.NotificationContainer) func(evt app.Notify) {

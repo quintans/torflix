@@ -148,12 +148,10 @@ func (s *Search) Search() DownloadType {
 		return 0
 	}
 
-	fmt.Println("===>", results)
 	data := []*SearchData{}
 	for _, r := range results {
 		if r.Error != nil {
 			s.root.App.logAndPub(r.Error, "Failed to search")
-			fmt.Println("===>", r.Error)
 			continue
 		}
 		data = append(data, r.Data...)

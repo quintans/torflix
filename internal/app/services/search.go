@@ -154,7 +154,7 @@ func (c Search) Search(query string, selectedProviders []string) ([]*viewmodel.S
 	results := make([]*viewmodel.SearchResult, 0, count)
 	for range count {
 		res := <-ch
-		if len(res.Data) != 0 && res.Error == nil {
+		if len(res.Data) == 0 && res.Error == nil {
 			continue // skip results with no seeds
 		}
 		results = append(results, res)

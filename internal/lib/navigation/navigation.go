@@ -4,8 +4,10 @@ import (
 	"fyne.io/fyne/v2"
 )
 
-type Navigate func(screen fyne.CanvasObject, close func(bool))
-type View[VM any] func(vm VM, navigator *Navigator[VM]) (screen fyne.CanvasObject, close func(bool))
+type (
+	Navigate     func(screen fyne.CanvasObject, close func(bool))
+	View[VM any] func(vm VM, navigator *Navigator[VM]) (screen fyne.CanvasObject, close func(bool))
+)
 
 type navigation[VM any] struct {
 	view  View[VM]
@@ -51,13 +53,15 @@ func (n *Navigator[VM]) Back(vm VM) {
 		return
 	}
 
+	// Pop last screen
 	last := n.stack[len(n.stack)-1]
+	n.stack = n.stack[:len(n.stack)-1]
+
 	last.close(true) // Notify the previous screen to clean up on back
 	screen, close := last.view(vm, n)
 
-	// Pop last screen
-	n.stack = n.stack[:len(n.stack)-1]
-	n.stack[len(n.stack)-1].close = close // Update close function for the previous screen
+	last = n.stack[len(n.stack)-1]
+	last.close = close // Update close function for the previous screen
 
 	n.container.Objects = []fyne.CanvasObject{screen}
 	n.container.Refresh()
