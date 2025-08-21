@@ -120,3 +120,12 @@ func (b *Bind[T]) Get() T {
 
 	return b.value
 }
+
+func (b *Bind[T]) Clear() {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+
+	b.value = *new(T)
+	b.set = false
+	b.listeners.Clear()
+}

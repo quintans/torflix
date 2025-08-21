@@ -83,6 +83,9 @@ func (d *Download) Play() bool {
 func (d *Download) Back() {
 	if d.cancel != nil {
 		d.cancel()
-		d.cancel = nil
 	}
+	d.cancel = nil
+	d.fileToPlay = nil
+	d.originalQuery = ""
+	d.Status.Clear()
 }
