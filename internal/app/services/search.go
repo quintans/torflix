@@ -102,12 +102,15 @@ func (c Search) Search(query string, selectedProviders []string) ([]*viewmodel.S
 		return nil, faults.Errorf("no providers selected")
 	}
 
-	selection := make(map[string]bool, len(c.providers))
-	for _, p := range c.providers {
-		selection[p] = slices.Contains(selectedProviders, p)
+	selection := make(map[string]bool, len(selectedProviders))
+	for _, p := range selectedProviders {
+		selection[p] = true
 	}
 	model.SetSelectedProviders(selection)
-	c.repo.SaveSearch(model)
+	err = c.repo.SaveSearch(model)
+	if err != nil {
+		return nil, faults.Errorf("saving search: %w", err)
+	}
 
 	settings, err := c.repo.LoadSettings()
 	if err != nil {

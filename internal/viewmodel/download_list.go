@@ -10,7 +10,7 @@ type DownloadList struct {
 	root          *ViewModel
 	service       DownloadService
 	originalQuery string
-	FileItems     *bind.Bind[[]*FileItem]
+	FileItems     bind.Notifier[[]*FileItem]
 }
 
 type FileItem struct {

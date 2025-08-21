@@ -90,8 +90,15 @@ func (s *Search) Init() {
 	}
 
 	s.Providers = data.Providers
-	// this must come after setting the providers
-	s.SelectedProviders.Set(data.Model.SelectedProviders())
+	// the following code must come after setting the providers
+	selected := make(map[string]bool, len(data.Providers))
+	oldSelection := data.Model.SelectedProviders()
+	for _, v := range data.Providers {
+		if oldSelection[v] {
+			selected[v] = true
+		}
+	}
+	s.SelectedProviders.Set(selected)
 
 	s.root.App.EscapeKey.Notify(nil)
 }
@@ -141,18 +148,19 @@ func (s *Search) Search() DownloadType {
 		return 0
 	}
 
-	if len(results) == 0 {
-		s.root.App.logAndPub(nil, "No results found for query")
-		return 0
-	}
-
+	fmt.Println("===>", results)
 	data := []*SearchData{}
 	for _, r := range results {
 		if r.Error != nil {
 			s.root.App.logAndPub(r.Error, "Failed to search")
+			fmt.Println("===>", r.Error)
 			continue
 		}
 		data = append(data, r.Data...)
+	}
+	// results may be >= 0 but the data may be empty (where seeds = 0)
+	if len(data) == 0 {
+		s.root.App.ShowNotification.Notify(app.NewNotifyWarn("No results found for query"))
 	}
 
 	data, err = s.collapseByHash(data)

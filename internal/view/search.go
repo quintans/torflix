@@ -40,30 +40,21 @@ func Search(vm *viewmodel.ViewModel, navigator *navigation.Navigator[*viewmodel.
 		providers := vm.Search.Providers
 		pills = make([]*components.PillChoice, 0, len(providers))
 
-		selection := map[string]bool{}
 		for _, v := range providers {
-			selected, ok := selectedProviders[v]
-			if !ok {
-				selected = true
-			}
-
-			if selected {
-				selection[v] = selected
-			}
+			selected := selectedProviders[v]
 
 			pill := components.NewPillChoice(v, selected)
 			pill.OnSelected = func(selected bool) {
 				if selected {
-					selection[v] = selected
+					selectedProviders[v] = selected
 				} else {
-					delete(selection, v)
+					delete(selectedProviders, v)
 				}
-				vm.Search.SelectedProviders.Set(selection)
+				vm.Search.SelectedProviders.Set(selectedProviders)
 			}
 			pills = append(pills, pill)
 			pillContainer.Add(pill)
 		}
-		vm.Search.SelectedProviders.Set(selection)
 	})
 
 	data := make([]components.MagnetItem, 0)
@@ -93,14 +84,7 @@ func Search(vm *viewmodel.ViewModel, navigator *navigation.Navigator[*viewmodel.
 		searchBtn.Disable()
 
 		result.UnselectAll()
-
 		result.Refresh()
-		selectedProviders := []string{}
-		for _, p := range pills {
-			if p.Selected() {
-				selectedProviders = append(selectedProviders, p.Text())
-			}
-		}
 
 		nav := vm.Search.Search()
 		if navigate(vm, navigator, nav) {

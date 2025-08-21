@@ -27,8 +27,8 @@ type Download struct {
 	subtitlesDir   string
 	ctx            context.Context
 	cancel         func()
-	Status         *bind.Bind[app.Stats]
-	Playable       *bind.Bind[bool]
+	Status         bind.Notifier[app.Stats]
+	Playable       bind.Notifier[bool]
 }
 
 func NewDownload(service DownloadService) *Download {

@@ -33,6 +33,7 @@ func App(vm *viewmodel.ViewModel, _ *navigation.Navigator[*viewmodel.ViewModel])
 
 	enableTabs := func(u, p string) {
 		if u != "" && p != "" {
+			tabs.SelectIndex(0)
 			appEnableTabs(tabs, true)
 			return
 		}

@@ -32,9 +32,9 @@ type App struct {
 	CacheDir         binding.String
 	OSUsername       *bind.Bind[string]
 	OSPassword       *bind.Bind[string]
-	ShowNotification *bind.Bind[app.Notify]
-	CacheCleared     *bind.Bind[bool]
-	EscapeKey        *bind.Bind[func()]
+	ShowNotification bind.Notifier[app.Notify]
+	CacheCleared     bind.Notifier[bool]
+	EscapeKey        bind.Notifier[func()]
 }
 
 func NewApp(service AppService) *App {

@@ -4,8 +4,6 @@ import (
 	"github.com/quintans/torflix/internal/app"
 )
 
-type logAndPubFunc func(err error, msg string, args ...any)
-
 type ViewModel struct {
 	eventBus     app.EventBus
 	App          *App

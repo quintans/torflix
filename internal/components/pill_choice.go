@@ -63,7 +63,7 @@ func (p *PillChoice) Tapped(_ *fyne.PointEvent) {
 	p.updateSelection()
 
 	if p.OnSelected != nil {
-		p.OnSelected(!p.selected)
+		p.OnSelected(p.selected)
 	}
 
 	p.rectangle.Refresh()

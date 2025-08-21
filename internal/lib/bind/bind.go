@@ -5,6 +5,12 @@ import (
 	"sync"
 )
 
+type Notifier[T any] interface {
+	Bind(func(T)) func()
+	Notify(T)
+	Clear()
+}
+
 type handler[T any] interface {
 	handle(value T)
 }
@@ -13,7 +19,7 @@ type handle[T any] struct {
 	fn func(T)
 }
 
-func (h *handle[T]) Handle(value T) {
+func (h *handle[T]) handle(value T) {
 	h.fn(value)
 }
 
