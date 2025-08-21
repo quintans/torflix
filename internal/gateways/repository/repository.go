@@ -13,7 +13,6 @@ import (
 type DB struct {
 	dir      string
 	search   *model.Search
-	download *model.Download
 	settings *model.Settings
 }
 
@@ -22,8 +21,7 @@ func NewDB(cacheDir string) *DB {
 	os.MkdirAll(dir, os.ModePerm)
 
 	return &DB{
-		dir:      dir,
-		download: model.NewDownload(),
+		dir: dir,
 	}
 }
 

@@ -13,6 +13,7 @@ import (
 type AppService interface {
 	LoadData() (AppData, error)
 	SetOpenSubtitles(username, password string) error
+	ClearCache() error
 }
 
 type AppData struct {
@@ -28,25 +29,26 @@ type OpenSubtitles struct {
 type App struct {
 	root             *ViewModel
 	service          AppService
-	ClearCache       *bind.Bind[bool]
 	CacheDir         binding.String
 	OSUsername       *bind.Bind[string]
 	OSPassword       *bind.Bind[string]
 	ShowNotification *bind.Bind[app.Notify]
+	CacheCleared     *bind.Bind[bool]
+	EscapeKey        *bind.Bind[func()]
 }
 
 func NewApp(service AppService) *App {
 	return &App{
 		service:          service,
-		ClearCache:       bind.NewNotifier[bool](),
 		CacheDir:         binding.NewString(),
 		OSUsername:       bind.New[string](),
 		OSPassword:       bind.New[string](),
 		ShowNotification: bind.NewNotifier[app.Notify](),
+		CacheCleared:     bind.NewNotifier[bool](),
 	}
 }
 
-func (a *App) LoadData() {
+func (a *App) Init() {
 	data, err := a.service.LoadData()
 	if err != nil {
 		a.logAndPub(err, "Failed to load app data")
@@ -89,4 +91,16 @@ func (a *App) logAndPub(err error, msg string, args ...any) {
 
 	a.ShowNotification.Notify(app.NewNotifyInfo(s))
 	slog.Error(msg, args...)
+}
+
+func (a *App) ClearCache() {
+	err := a.service.ClearCache()
+	if err != nil {
+		a.root.App.logAndPub(err, "Failed to clear cache")
+		return
+	}
+
+	a.CacheCleared.Notify(true)
+
+	a.ShowNotification.Notify(app.NewNotifyInfo("Cache cleared"))
 }

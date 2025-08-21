@@ -36,7 +36,6 @@ type Download struct {
 	torCliFact             TorrentClientFactory
 	videoPlayer            app.VideoPlayer
 	subtitlesClientFactory OpenSubtitlesClientFactory
-	mediaDir               string
 	torrentsDir            string
 	subtitlesRootDir       string
 
@@ -48,7 +47,6 @@ func NewDownload(
 	videoPlayer app.VideoPlayer,
 	torCliFact TorrentClientFactory,
 	subtitlesClientFactory OpenSubtitlesClientFactory,
-	mediaDir string,
 	torrentsDir string,
 	subtitlesDir string,
 	secrets app.Secrets,
@@ -58,7 +56,6 @@ func NewDownload(
 		torCliFact:             torCliFact,
 		videoPlayer:            videoPlayer,
 		subtitlesClientFactory: subtitlesClientFactory,
-		mediaDir:               mediaDir,
 		torrentsDir:            torrentsDir,
 		subtitlesRootDir:       subtitlesDir,
 		secrets:                secrets,
@@ -99,8 +96,6 @@ func (c *Download) ServeFile(
 	setStats func(app.Stats),
 ) (string, error) {
 	qc := c.getQueryComponents(file, originalQuery)
-
-	c.downloadView.Show(file.Torrent().Name(), file.DisplayPath())
 
 	c.client.Play(file)
 
@@ -162,9 +157,7 @@ func (c *Download) ServeFile(
 	return qc.queryAndSeason, nil
 }
 
-func (c *Download) Play(ctx context.Context, asyncError app.AsyncError, servingFile, subtitlesDir string) error {
-	c.downloadView.DisablePlay()
-
+func (c *Download) Play(ctx context.Context, asyncError app.AsyncError, servingFile, subtitlesDir string, onClose func()) error {
 	settings, err := c.repo.LoadSettings()
 	if err != nil {
 		return faults.Errorf("loading settings on play: %w", err)
@@ -192,7 +185,7 @@ func (c *Download) Play(ctx context.Context, asyncError app.AsyncError, servingF
 			asyncError(err, "Failed to open player")
 		}
 
-		c.downloadView.EnablePlay()
+		onClose()
 	}()
 
 	return nil
@@ -227,10 +220,6 @@ func (c *Download) getQueryComponents(file *torrent.File, originalQuery string) 
 }
 
 func (c *Download) downloadSubtitles(file *torrent.File, qc queryComponents) (string, int, error) {
-	c.eventBus.Publish(app.Loading{
-		Text: "Downloading subtitles",
-	})
-
 	settings, err := c.repo.LoadSettings()
 	if err != nil {
 		return "", 0, faults.Errorf("loading settings: %w", err)
@@ -263,7 +252,6 @@ func (c *Download) downloadSubtitles(file *torrent.File, qc queryComponents) (st
 	}
 
 	if len(subtitles) == 0 {
-		c.eventBus.Info("No subtitles found")
 		return "", 0, nil
 	}
 
@@ -461,21 +449,4 @@ func parseInt(input string) int {
 		slog.Error("Failed to parse integer", "error", err)
 	}
 	return result
-}
-
-func (c *Download) ClearCache(_ app.ClearCache) {
-	err := os.RemoveAll(c.mediaDir)
-	if err != nil {
-		logAndPub(c.eventBus, err, "Failed to clear media cache")
-	}
-	err = os.RemoveAll(c.torrentsDir)
-	if err != nil {
-		logAndPub(c.eventBus, err, "Failed to clear torrent cache")
-	}
-	err = os.RemoveAll(c.subtitlesRootDir)
-	if err != nil {
-		logAndPub(c.eventBus, err, "Failed to clear subtitles cache")
-	}
-
-	c.eventBus.Success("Cache cleared")
 }

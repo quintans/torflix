@@ -1,26 +1,37 @@
 package services
 
 import (
+	"os"
+
 	"github.com/quintans/faults"
 	"github.com/quintans/torflix/internal/app"
 	"github.com/quintans/torflix/internal/viewmodel"
 )
 
 type App struct {
-	repo     Repository
-	secrets  app.Secrets
-	cacheDir string
+	repo             Repository
+	secrets          app.Secrets
+	cacheDir         string
+	mediaDir         string
+	torrentsDir      string
+	subtitlesRootDir string
 }
 
 func NewApp(
 	repo Repository,
 	secrets app.Secrets,
 	cacheDir string,
+	mediaDir string,
+	torrentsDir string,
+	subtitlesRootDir string,
 ) *App {
 	return &App{
-		repo:     repo,
-		secrets:  secrets,
-		cacheDir: cacheDir,
+		repo:             repo,
+		secrets:          secrets,
+		cacheDir:         cacheDir,
+		mediaDir:         mediaDir,
+		torrentsDir:      torrentsDir,
+		subtitlesRootDir: subtitlesRootDir,
 	}
 }
 
@@ -61,6 +72,23 @@ func (a *App) SetOpenSubtitles(username, password string) error {
 	err = a.repo.SaveSettings(settings)
 	if err != nil {
 		return faults.Errorf("Failed to save settings: %w", err)
+	}
+
+	return nil
+}
+
+func (a *App) ClearCache() error {
+	err := os.RemoveAll(a.mediaDir)
+	if err != nil {
+		return faults.Errorf("Failed to clear media cache: %w", err)
+	}
+	err = os.RemoveAll(a.torrentsDir)
+	if err != nil {
+		return faults.Errorf("Failed to clear torrent cache: %w", err)
+	}
+	err = os.RemoveAll(a.subtitlesRootDir)
+	if err != nil {
+		return faults.Errorf("Failed to clear subtitles cache: %w", err)
 	}
 
 	return nil

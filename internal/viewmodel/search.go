@@ -76,7 +76,7 @@ func NewSearch(searchService SearchService, downloadService DownloadService) *Se
 	}
 }
 
-func (s *Search) LoadSearch() {
+func (s *Search) Init() {
 	data, err := s.searchService.LoadSearch()
 	if err != nil {
 		s.root.App.logAndPub(err, "Failed to load search data")
@@ -92,6 +92,8 @@ func (s *Search) LoadSearch() {
 	s.Providers = data.Providers
 	// this must come after setting the providers
 	s.SelectedProviders.Set(data.Model.SelectedProviders())
+
+	s.root.App.EscapeKey.Notify(nil)
 }
 
 func (s *Search) Search() DownloadType {
@@ -196,7 +198,7 @@ func (s *Search) Download(magnetLink string) DownloadType {
 	}
 
 	if len(files) == 1 {
-		s.root.Download.Init(files[0], s.originalQuery)
+		s.root.Download.Init(files[0], false, s.originalQuery)
 		return DownloadSingle
 	}
 
@@ -204,7 +206,7 @@ func (s *Search) Download(magnetLink string) DownloadType {
 		return cmp.Compare(i.DisplayPath(), j.DisplayPath())
 	})
 
-	s.root.DownloadList.SetFiles(files)
+	s.root.DownloadList.Init(files, s.originalQuery)
 
 	return DownloadMultiple
 }

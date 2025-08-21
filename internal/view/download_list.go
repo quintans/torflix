@@ -16,6 +16,7 @@ type DownloadListController interface {
 }
 
 func DownloadList(vm *viewmodel.ViewModel, navigator *navigation.Navigator[*viewmodel.ViewModel]) (fyne.CanvasObject, func(bool)) {
+	var fileItems []*viewmodel.FileItem
 	result := widget.NewList(
 		func() int {
 			return len(fileItems)
@@ -30,9 +31,9 @@ func DownloadList(vm *viewmodel.ViewModel, navigator *navigation.Navigator[*view
 		func(i widget.ListItemID, o fyne.CanvasObject) {
 			it := o.(*fyne.Container)
 			name := it.Objects[0].(*widget.Label)
-			name.SetText(fileItems[i].Name)
+			name.SetText(fileItems[i].File.DisplayPath())
 			size := it.Objects[1].(*widget.Label)
-			size.SetText(humanize.Bytes(uint64(fileItems[i].Size)))
+			size.SetText(humanize.Bytes(uint64(fileItems[i].File.Length())))
 			if fileItems[i].Selected {
 				name.Importance = widget.HighImportance
 				size.Importance = widget.HighImportance
@@ -43,16 +44,23 @@ func DownloadList(vm *viewmodel.ViewModel, navigator *navigation.Navigator[*view
 		},
 	)
 	result.OnSelected = func(id widget.ListItemID) {
-		s.controller.PlayFile(id)
+		vm.DownloadList.Select(fileItems[id])
 		result.Unselect(id)
 		result.Refresh()
 	}
 
-	s.showViewer.ShowView(container.NewBorder(
-		nil,
-		container.NewHBox(layout.NewSpacer(), widget.NewButton("Back", s.controller.Back)),
-		nil,
-		nil,
-		result,
-	))
+	unbindFileItems := vm.DownloadList.FileItems.Bind(func(items []*viewmodel.FileItem) {
+		fileItems = items
+		result.Refresh()
+	})
+
+	return container.NewBorder(
+			nil,
+			container.NewHBox(layout.NewSpacer(), widget.NewButton("Back", vm.DownloadList.Back)),
+			nil,
+			nil,
+			result,
+		), func(bool) {
+			unbindFileItems()
+		}
 }

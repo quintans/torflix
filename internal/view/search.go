@@ -127,14 +127,14 @@ func Search(vm *viewmodel.ViewModel, navigator *navigation.Navigator[*viewmodel.
 		result.Refresh()
 	})
 
-	unbindClearCache := vm.App.ClearCache.Bind(func(bool) {
+	unbindClearCache := vm.App.CacheCleared.Bind(func(bool) {
 		for i := range data {
 			data[i].Cached = false
 		}
 		result.Refresh()
 	})
 
-	vm.Search.LoadSearch()
+	vm.Search.Init()
 
 	return container.NewBorder(
 			container.NewBorder(nil, pillContainer, nil, searchBtn, query),

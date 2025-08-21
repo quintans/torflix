@@ -54,7 +54,7 @@ func App(vm *viewmodel.ViewModel, _ *navigation.Navigator[*viewmodel.ViewModel])
 	margin := float32(10)
 	anchor.Add(notification.Container(), mycontainer.AnchorConstraints{Top: &margin, Right: &margin})
 
-	vm.App.LoadData()
+	vm.App.Init()
 
 	searchNavigator := navigation.New[*viewmodel.ViewModel](search)
 	searchNavigator.To(vm, Search)
@@ -71,7 +71,7 @@ func App(vm *viewmodel.ViewModel, _ *navigation.Navigator[*viewmodel.ViewModel])
 
 func appAddCacheSection(sections *fyne.Container, vm *viewmodel.ViewModel) {
 	clear := widget.NewButton("Clear Cache", func() {
-		vm.App.ClearCache.Notify(true)
+		vm.App.ClearCache()
 	})
 	clear.Importance = widget.WarningImportance
 
@@ -117,6 +117,7 @@ func appAddSubtitlesSection(sections *fyne.Container, vm *viewmodel.ViewModel) f
 		unbindPassword()
 	}
 }
+
 func appDisableAllTabsButSettings(tabs *container.AppTabs) {
 	tabs.SelectIndex(len(tabs.Items) - 1)
 	appEnableTabs(tabs, false)

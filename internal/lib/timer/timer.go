@@ -39,6 +39,7 @@ func (d *Timer) Stop() {
 
 	if d.timer != nil {
 		d.timer.Stop()
+		d.timer = nil
 		d.fn = nil
 	}
 }

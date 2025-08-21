@@ -23,24 +23,30 @@ func Download(vm *viewmodel.ViewModel, navigator *navigation.Navigator[*viewmode
 	uploadSpeed := widget.NewLabel("")
 	seeders := widget.NewLabel("")
 
-	play := widget.NewButton("Play", nil)
-	play.OnTapped = func() {
-		if vm.Download.Play() {
-			play.Disable()
-		}
-	}
-	play.Importance = widget.HighImportance
-	play.Disable()
-
 	back := widget.NewButton("Back", func() {
 		navigator.Back(vm)
+	})
+
+	play := widget.NewButton("Play", nil)
+	play.Disable()
+	play.OnTapped = func() {
+		vm.Download.Play()
+	}
+	play.Importance = widget.HighImportance
+	vm.Download.Playable.Bind(func(playable bool) {
+		if playable {
+			play.Enable()
+		} else {
+			play.Disable()
+		}
 	})
 
 	widgets := []fyne.CanvasObject{}
 	name := canvas.NewText("Name", color.White)
 	name.Alignment = fyne.TextAlignTrailing
-	widgets = append(widgets, name, widget.NewLabel(torName))
+	widgets = append(widgets, name, widget.NewLabel(vm.Download.TorrentFilename()))
 
+	subFile := vm.Download.TorrentSubFilename()
 	if subFile != "" {
 		sf := canvas.NewText("Sub File", color.White)
 		sf.Alignment = fyne.TextAlignTrailing
@@ -94,7 +100,9 @@ func Download(vm *viewmodel.ViewModel, navigator *navigation.Navigator[*viewmode
 		tracker.SetPieces(stats.Pieces)
 	})
 
-	vm.Download.Play()
+	if vm.Download.Serve() {
+		vm.Download.Play()
+	}
 
 	content := container.NewVBox(
 		container.New(layout.NewFormLayout(), widgets...),
