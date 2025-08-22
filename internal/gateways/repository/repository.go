@@ -26,14 +26,21 @@ func NewDB(cacheDir string) *DB {
 }
 
 type Search struct {
-	LastQuery         string          `json:"lastQuery"`
-	SelectedProviders map[string]bool `json:"selectedProviders"`
+	LastQuery         string   `json:"lastQuery"`
+	SelectedProviders []string `json:"searchWith"`
 }
 
 func (d *DB) SaveSearch(search *model.Search) error {
+	selected := make([]string, 0, len(search.SelectedProviders()))
+	for k, v := range search.SelectedProviders() {
+		if v {
+			selected = append(selected, k)
+		}
+	}
+
 	err := d.write("search.json", Search{
 		LastQuery:         search.Query(),
-		SelectedProviders: search.SelectedProviders(),
+		SelectedProviders: selected,
 	})
 	if err != nil {
 		return faults.Errorf("saving search: %w", err)
@@ -51,8 +58,13 @@ func (d *DB) LoadSearch() (*model.Search, error) {
 			return nil, faults.Errorf("loading search: %w", err)
 		}
 
+		selectedProviders := make(map[string]bool, len(s.SelectedProviders))
+		for _, v := range s.SelectedProviders {
+			selectedProviders[v] = true
+		}
+
 		search := model.NewSearch()
-		search.Hydrate(s.LastQuery, s.SelectedProviders)
+		search.Hydrate(s.LastQuery, selectedProviders)
 
 		d.search = search
 	}

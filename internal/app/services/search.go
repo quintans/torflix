@@ -15,10 +15,6 @@ import (
 	"github.com/quintans/torflix/internal/viewmodel"
 )
 
-type SearchView interface {
-	Show(*model.Search, []string)
-}
-
 type Search struct {
 	repo       Repository
 	extractors []app.Extractor

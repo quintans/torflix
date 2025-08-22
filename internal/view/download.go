@@ -24,6 +24,7 @@ func Download(vm *viewmodel.ViewModel, navigator *navigation.Navigator[*viewmode
 	seeders := widget.NewLabel("")
 
 	back := widget.NewButton("Back", func() {
+		vm.Download.Back()
 		navigator.Back(vm)
 	})
 
@@ -117,7 +118,5 @@ func Download(vm *viewmodel.ViewModel, navigator *navigation.Navigator[*viewmode
 	)
 	return content, func(bool) {
 		unbindStats()
-
-		vm.Download.Back()
 	}
 }

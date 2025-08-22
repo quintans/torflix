@@ -36,6 +36,7 @@ func Search(vm *viewmodel.ViewModel, navigator *navigation.Navigator[*viewmodel.
 
 	var pills []*components.PillChoice
 	pillContainer := container.NewHBox()
+
 	unbindSearchProviders := vm.Search.SelectedProviders.Bind(func(selectedProviders map[string]bool) {
 		providers := vm.Search.Providers
 		pills = make([]*components.PillChoice, 0, len(providers))
@@ -57,7 +58,10 @@ func Search(vm *viewmodel.ViewModel, navigator *navigation.Navigator[*viewmodel.
 		}
 	})
 
-	data := make([]components.MagnetItem, 0)
+	subtitles := widget.NewCheck("Download Subtitles", nil)
+	subtitles.SetChecked(vm.Search.DownloadSubtitles)
+
+	var data []*viewmodel.SearchData
 	result := widget.NewList(
 		func() int {
 			return len(data)
@@ -66,7 +70,16 @@ func Search(vm *viewmodel.ViewModel, navigator *navigation.Navigator[*viewmodel.
 			return components.NewMagnetListItem()
 		},
 		func(i widget.ListItemID, o fyne.CanvasObject) {
-			o.(*components.MagnetListItem).SetData(data[i])
+			r := data[i]
+			o.(*components.MagnetListItem).SetData(&components.MagnetItem{
+				Provider: r.Provider,
+				Name:     r.Name,
+				Size:     r.Size,
+				Seeds:    strconv.Itoa(r.Seeds),
+				Magnet:   r.Magnet,
+				Cached:   r.Cached,
+				Quality:  r.QualityName,
+			})
 		},
 	)
 	result.OnSelected = func(id widget.ListItemID) {
@@ -86,7 +99,7 @@ func Search(vm *viewmodel.ViewModel, navigator *navigation.Navigator[*viewmodel.
 		result.UnselectAll()
 		result.Refresh()
 
-		nav := vm.Search.Search()
+		nav := vm.Search.Search(subtitles.Checked)
 		if navigate(vm, navigator, nav) {
 			return
 		}
@@ -94,21 +107,11 @@ func Search(vm *viewmodel.ViewModel, navigator *navigation.Navigator[*viewmodel.
 	}
 
 	unbindSearchResult := vm.Search.SearchResults.Bind(func(results []*viewmodel.SearchData) {
-		items := make([]components.MagnetItem, len(results))
-		for i, r := range results {
-			items[i] = components.MagnetItem{
-				Provider: r.Provider,
-				Name:     r.Name,
-				Size:     r.Size,
-				Seeds:    strconv.Itoa(r.Seeds),
-				Magnet:   r.Magnet,
-				Cached:   r.Cached,
-				Quality:  r.QualityName,
-			}
-		}
-
-		data = items
-		result.Refresh()
+		// I don't understand why it only refreshes the UI with the cache flag in a goroutine
+		go func() {
+			data = results
+			result.Refresh()
+		}()
 	})
 
 	unbindClearCache := vm.App.CacheCleared.Bind(func(bool) {
@@ -120,17 +123,21 @@ func Search(vm *viewmodel.ViewModel, navigator *navigation.Navigator[*viewmodel.
 
 	vm.Search.Init()
 
+	options := container.NewVBox(pillContainer, subtitles)
+
 	return container.NewBorder(
-			container.NewBorder(nil, pillContainer, nil, searchBtn, query),
+			container.NewBorder(nil, options, nil, searchBtn, query),
 			nil,
 			nil,
 			nil,
 			result,
 		), func(bool) {
-			// Handle exit
 			unbindSearchProviders()
 			unbindSearchResult()
 			unbindClearCache()
+
+			// before leaving store any potential cache flagged item. It will have no side effects because everything was unbind
+			vm.Search.SearchResults.Set(data)
 		}
 }
 

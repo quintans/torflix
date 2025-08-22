@@ -46,6 +46,7 @@ type Search struct {
 	Query             *bind.Bind[string]
 	SelectedProviders *bind.Bind[map[string]bool]
 	Providers         []string
+	DownloadSubtitles bool
 	SearchResults     *bind.Bind[[]*SearchData]
 }
 
@@ -103,7 +104,8 @@ func (s *Search) Init() {
 	s.root.App.EscapeKey.Notify(nil)
 }
 
-func (s *Search) Search() DownloadType {
+func (s *Search) Search(subtitles bool) DownloadType {
+	s.root.Download.DownloadSubtitles = subtitles
 	query := s.Query.Get()
 	if strings.HasPrefix(query, "magnet:") {
 		mag, err := magnet.Parse(query)

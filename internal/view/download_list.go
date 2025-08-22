@@ -45,8 +45,9 @@ func DownloadList(vm *viewmodel.ViewModel, navigator *navigation.Navigator[*view
 	)
 	result.OnSelected = func(id widget.ListItemID) {
 		vm.DownloadList.Select(fileItems[id])
-		result.Unselect(id)
-		result.Refresh()
+		navigator.To(vm, Download)
+		// result.Unselect(id)
+		// result.Refresh()
 	}
 
 	unbindFileItems := vm.DownloadList.FileItems.Bind(func(items []*viewmodel.FileItem) {
@@ -56,7 +57,10 @@ func DownloadList(vm *viewmodel.ViewModel, navigator *navigation.Navigator[*view
 
 	return container.NewBorder(
 			nil,
-			container.NewHBox(layout.NewSpacer(), widget.NewButton("Back", vm.DownloadList.Back)),
+			container.NewHBox(layout.NewSpacer(), widget.NewButton("Back", func() {
+				vm.DownloadList.Back()
+				navigator.Back(vm)
+			})),
 			nil,
 			nil,
 			result,

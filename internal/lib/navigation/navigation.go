@@ -58,9 +58,9 @@ func (n *Navigator[VM]) Back(vm VM) {
 	n.stack = n.stack[:len(n.stack)-1]
 
 	last.close(true) // Notify the previous screen to clean up on back
-	screen, close := last.view(vm, n)
 
 	last = n.stack[len(n.stack)-1]
+	screen, close := last.view(vm, n)
 	last.close = close // Update close function for the previous screen
 
 	n.container.Objects = []fyne.CanvasObject{screen}

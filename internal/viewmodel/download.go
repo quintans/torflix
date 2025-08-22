@@ -15,20 +15,23 @@ type DownloadService interface {
 	DownloadSubtitles(file *torrent.File, originalQuery string) (string, int, error)
 	ServeFile(ctx context.Context, asyncError app.AsyncError, file *torrent.File, originalQuery string, setStats func(app.Stats)) (string, error)
 	Play(ctx context.Context, asyncError app.AsyncError, servingFile, subtitlesDir string, onClose func()) error
+	Pause()
+	Close()
 }
 
 type Download struct {
-	root           *ViewModel
-	service        DownloadService
-	fileToPlay     *torrent.File
-	isFromList     bool
-	originalQuery  string
-	queryAndSeason string
-	subtitlesDir   string
-	ctx            context.Context
-	cancel         func()
-	Status         bind.Notifier[app.Stats]
-	Playable       bind.Notifier[bool]
+	root              *ViewModel
+	service           DownloadService
+	fileToPlay        *torrent.File
+	isFromList        bool
+	originalQuery     string
+	queryAndSeason    string
+	subtitlesDir      string
+	ctx               context.Context
+	cancel            func()
+	Status            bind.Notifier[app.Stats]
+	Playable          bind.Notifier[bool]
+	DownloadSubtitles bool
 }
 
 func NewDownload(service DownloadService) *Download {
@@ -43,6 +46,13 @@ func (d *Download) Back() {
 	if d.cancel != nil {
 		d.cancel()
 	}
+
+	if d.isFromList {
+		d.service.Pause()
+	} else {
+		d.service.Close()
+	}
+
 	d.cancel = nil
 	d.ctx = nil
 	d.fileToPlay = nil
@@ -78,26 +88,30 @@ func (d *Download) TorrentSubFilename() string {
 }
 
 func (d *Download) Serve() bool {
-	t := timer.New(time.Second, func() {
-		d.root.eventBus.Publish(app.Loading{
-			Text: "Downloading subtitles",
-			Show: true,
+	if d.DownloadSubtitles {
+		t := timer.New(time.Second, func() {
+			d.root.eventBus.Publish(app.Loading{
+				Text: "Downloading subtitles",
+				Show: true,
+			})
 		})
-	})
 
-	defer func() {
-		t.Stop()
-		d.root.eventBus.Publish(app.Loading{}) // hide spinner
-	}()
+		defer func() {
+			t.Stop()
+			d.root.eventBus.Publish(app.Loading{}) // hide spinner
+		}()
 
-	subtitlesDir, downloaded, err := d.service.DownloadSubtitles(d.fileToPlay, d.originalQuery)
-	if err != nil {
-		d.root.App.logAndPub(err, "Failed to download subtitles")
-		return false
-	}
+		subtitlesDir, downloaded, err := d.service.DownloadSubtitles(d.fileToPlay, d.originalQuery)
+		if err != nil {
+			d.root.App.logAndPub(err, "Failed to download subtitles")
+			return false
+		}
 
-	if downloaded == 0 {
-		d.root.App.ShowNotification.Notify(app.NewNotifyInfo("No subtitles found"))
+		if downloaded == 0 {
+			d.root.App.ShowNotification.Notify(app.NewNotifyInfo("No subtitles found"))
+		}
+
+		d.subtitlesDir = subtitlesDir
 	}
 
 	queryAndSeason, err := d.service.ServeFile(d.ctx, d.root.App.logAndPub, d.fileToPlay, d.originalQuery, func(stats app.Stats) {
@@ -109,7 +123,6 @@ func (d *Download) Serve() bool {
 	}
 
 	d.queryAndSeason = queryAndSeason
-	d.subtitlesDir = subtitlesDir
 
 	return true
 }

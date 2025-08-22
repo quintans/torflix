@@ -99,7 +99,7 @@ func (b *Bind[T]) Bind(h func(T)) func() {
 
 func (b *Bind[T]) Set(value T) {
 	b.mu.RLock()
-	if b.equal == nil || b.equal(b.value, value) {
+	if b.set && (b.equal == nil || b.equal(b.value, value)) {
 		b.mu.RUnlock()
 		return
 	}
