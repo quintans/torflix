@@ -7,8 +7,9 @@ import (
 
 type Notifier[T any] interface {
 	Bind(func(T)) func()
+	UnbindAll()
 	Notify(T)
-	Clear()
+	Reset()
 }
 
 type handler[T any] interface {
@@ -127,11 +128,15 @@ func (b *Bind[T]) Get() T {
 	return b.value
 }
 
-func (b *Bind[T]) Clear() {
+func (b *Bind[T]) Reset() {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 
 	b.value = *new(T)
 	b.set = false
+	b.listeners.Clear()
+}
+
+func (b *Bind[T]) UnbindAll() {
 	b.listeners.Clear()
 }

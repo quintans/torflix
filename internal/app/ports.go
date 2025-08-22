@@ -91,3 +91,8 @@ type OpenSubtitlesSecret struct {
 }
 
 type AsyncError func(err error, message string, args ...any)
+
+type SearchSettings struct {
+	Model     *model.Search
+	Providers []string
+}

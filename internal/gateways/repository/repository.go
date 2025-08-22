@@ -28,6 +28,7 @@ func NewDB(cacheDir string) *DB {
 type Search struct {
 	LastQuery         string   `json:"lastQuery"`
 	SelectedProviders []string `json:"searchWith"`
+	Subtitles         bool     `json:"subtitles"`
 }
 
 func (d *DB) SaveSearch(search *model.Search) error {
@@ -41,6 +42,7 @@ func (d *DB) SaveSearch(search *model.Search) error {
 	err := d.write("search.json", Search{
 		LastQuery:         search.Query(),
 		SelectedProviders: selected,
+		Subtitles:         search.Subtitles(),
 	})
 	if err != nil {
 		return faults.Errorf("saving search: %w", err)
@@ -64,7 +66,7 @@ func (d *DB) LoadSearch() (*model.Search, error) {
 		}
 
 		search := model.NewSearch()
-		search.Hydrate(s.LastQuery, selectedProviders)
+		search.Hydrate(s.LastQuery, selectedProviders, s.Subtitles)
 
 		d.search = search
 	}

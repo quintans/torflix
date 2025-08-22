@@ -10,11 +10,6 @@ import (
 	"github.com/quintans/torflix/internal/viewmodel"
 )
 
-type DownloadListController interface {
-	Back()
-	PlayFile(idx int)
-}
-
 func DownloadList(vm *viewmodel.ViewModel, navigator *navigation.Navigator[*viewmodel.ViewModel]) (fyne.CanvasObject, func(bool)) {
 	var fileItems []*viewmodel.FileItem
 	result := widget.NewList(

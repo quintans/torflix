@@ -66,13 +66,13 @@ func NewSearch(
 	}, nil
 }
 
-func (c *Search) LoadSearch() (*viewmodel.SearchSettings, error) {
+func (c *Search) LoadSearch() (*app.SearchSettings, error) {
 	model, err := c.repo.LoadSearch()
 	if err != nil {
 		return nil, faults.Errorf("loading search: %w", err)
 	}
 
-	return &viewmodel.SearchSettings{
+	return &app.SearchSettings{
 		Model:     model,
 		Providers: c.providers,
 	}, nil
@@ -82,32 +82,11 @@ func (c Search) SearchModel() (*model.Search, error) {
 	return c.repo.LoadSearch()
 }
 
+func (c Search) SaveSearch(model *model.Search) error {
+	return c.repo.SaveSearch(model)
+}
+
 func (c Search) Search(query string, selectedProviders []string) ([]*viewmodel.SearchResult, error) {
-	query = strings.TrimSpace(query)
-	model, err := c.repo.LoadSearch()
-	if err != nil {
-		return nil, faults.Errorf("loading search: %w", err)
-	}
-
-	err = model.SetQuery(query)
-	if err != nil {
-		return nil, faults.Errorf("setting query: %w", err)
-	}
-
-	if len(selectedProviders) == 0 {
-		return nil, faults.Errorf("no providers selected")
-	}
-
-	selection := make(map[string]bool, len(selectedProviders))
-	for _, p := range selectedProviders {
-		selection[p] = true
-	}
-	model.SetSelectedProviders(selection)
-	err = c.repo.SaveSearch(model)
-	if err != nil {
-		return nil, faults.Errorf("saving search: %w", err)
-	}
-
 	settings, err := c.repo.LoadSettings()
 	if err != nil {
 		return nil, faults.Errorf("loading settings: %w", err)

@@ -5,17 +5,21 @@ import "github.com/quintans/faults"
 type Search struct {
 	query             string
 	selectedProviders map[string]bool
+	subtitles         bool
 }
 
 func NewSearch() *Search {
 	return &Search{
-		query: "",
-		selectedProviders: map[string]bool{
-			"1337x": true,
-			"bt4g":  false,
-			"nyaa":  false,
-		},
+		query:             "",
+		selectedProviders: map[string]bool{},
+		subtitles:         false,
 	}
+}
+
+func (m *Search) Hydrate(query string, selectedProviders map[string]bool, subtitles bool) {
+	m.query = query
+	m.selectedProviders = selectedProviders
+	m.subtitles = subtitles
 }
 
 func (m *Search) SetQuery(query string) error {
@@ -39,7 +43,10 @@ func (m *Search) SetSelectedProviders(selectedProviders map[string]bool) {
 	m.selectedProviders = selectedProviders
 }
 
-func (m *Search) Hydrate(query string, selectedProviders map[string]bool) {
-	m.query = query
-	m.selectedProviders = selectedProviders
+func (m *Search) Subtitles() bool {
+	return m.subtitles
+}
+
+func (m *Search) SetSubtitles(subtitles bool) {
+	m.subtitles = subtitles
 }

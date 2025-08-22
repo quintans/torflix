@@ -59,7 +59,8 @@ func Search(vm *viewmodel.ViewModel, navigator *navigation.Navigator[*viewmodel.
 	})
 
 	subtitles := widget.NewCheck("Download Subtitles", nil)
-	subtitles.SetChecked(vm.Search.DownloadSubtitles)
+	unbindSubtitles := vm.Search.DownloadSubtitles.Bind(subtitles.SetChecked)
+	subtitles.OnChanged = vm.Search.DownloadSubtitles.Set
 
 	var data []*viewmodel.SearchData
 	result := widget.NewList(
@@ -121,7 +122,7 @@ func Search(vm *viewmodel.ViewModel, navigator *navigation.Navigator[*viewmodel.
 		result.Refresh()
 	})
 
-	vm.Search.Init()
+	vm.Search.Mount()
 
 	options := container.NewVBox(pillContainer, subtitles)
 
@@ -135,9 +136,9 @@ func Search(vm *viewmodel.ViewModel, navigator *navigation.Navigator[*viewmodel.
 			unbindSearchProviders()
 			unbindSearchResult()
 			unbindClearCache()
+			unbindSubtitles()
 
-			// before leaving store any potential cache flagged item. It will have no side effects because everything was unbind
-			vm.Search.SearchResults.Set(data)
+			vm.Search.Unmount()
 		}
 }
 

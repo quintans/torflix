@@ -29,13 +29,9 @@ const (
 )
 
 type SearchService interface {
-	LoadSearch() (*SearchSettings, error)
+	LoadSearch() (*app.SearchSettings, error)
+	SaveSearch(model *model.Search) error
 	Search(query string, providers []string) ([]*SearchResult, error)
-}
-
-type SearchSettings struct {
-	Model     *model.Search
-	Providers []string
 }
 
 type Search struct {
@@ -46,7 +42,7 @@ type Search struct {
 	Query             *bind.Bind[string]
 	SelectedProviders *bind.Bind[map[string]bool]
 	Providers         []string
-	DownloadSubtitles bool
+	DownloadSubtitles *bind.Bind[bool]
 	SearchResults     *bind.Bind[[]*SearchData]
 }
 
@@ -74,10 +70,11 @@ func NewSearch(searchService SearchService, downloadService DownloadService) *Se
 		Query:             bind.New[string](),
 		SelectedProviders: bind.NewMap[string, bool](),
 		SearchResults:     bind.NewSlicePtr[SearchData](),
+		DownloadSubtitles: bind.New[bool](),
 	}
 }
 
-func (s *Search) Init() {
+func (s *Search) Mount() {
 	data, err := s.searchService.LoadSearch()
 	if err != nil {
 		s.root.App.logAndPub(err, "Failed to load search data")
@@ -89,6 +86,15 @@ func (s *Search) Init() {
 		s.root.App.logAndPub(nil, "No providers available for search")
 		return
 	}
+
+	s.DownloadSubtitles.Set(data.Model.Subtitles())
+	s.DownloadSubtitles.Bind(func(subtitles bool) {
+		data.Model.SetSubtitles(subtitles)
+		err := s.searchService.SaveSearch(data.Model)
+		if err != nil {
+			s.root.App.logAndPub(err, "Failed to save search data")
+		}
+	})
 
 	s.Providers = data.Providers
 	// the following code must come after setting the providers
@@ -104,9 +110,44 @@ func (s *Search) Init() {
 	s.root.App.EscapeKey.Notify(nil)
 }
 
+func (s *Search) Unmount() {
+	s.Query.UnbindAll()
+	s.SelectedProviders.UnbindAll()
+	s.DownloadSubtitles.UnbindAll()
+	s.SearchResults.UnbindAll()
+}
+
 func (s *Search) Search(subtitles bool) DownloadType {
 	s.root.Download.DownloadSubtitles = subtitles
 	query := s.Query.Get()
+	query = strings.TrimSpace(query)
+
+	model := model.NewSearch()
+	model.SetSubtitles(subtitles)
+	model.SetQuery(query)
+
+	err := model.SetQuery(query)
+	if err != nil {
+		s.root.App.logAndPub(err, "Failed to set query")
+		return 0
+	}
+
+	selectedProviders := s.SelectedProviders.Get()
+	isMagnet := strings.HasPrefix(query, "magnet:")
+
+	if !isMagnet && len(selectedProviders) == 0 {
+		s.root.App.ShowNotification.Notify(app.NewNotifyWarn("Please select at least one provider"))
+		return 0
+	}
+
+	model.SetSelectedProviders(selectedProviders)
+
+	err = s.searchService.SaveSearch(model)
+	if err != nil {
+		s.root.App.logAndPub(err, "Failed to save search")
+		return 0
+	}
+
 	if strings.HasPrefix(query, "magnet:") {
 		mag, err := magnet.Parse(query)
 		if err != nil {
@@ -136,7 +177,7 @@ func (s *Search) Search(subtitles bool) DownloadType {
 	}()
 
 	s.originalQuery = query
-	selectedProviders := s.SelectedProviders.Get()
+
 	providers := []string{}
 	for k, v := range selectedProviders {
 		if v {
@@ -194,7 +235,7 @@ func (s *Search) Download(magnetLink string) DownloadType {
 		s.root.eventBus.Publish(app.Loading{}) // hide spinner
 	}()
 
-	files, err := s.downloadService.DownloadTorrent(s.originalQuery, magnetLink)
+	files, err := s.downloadService.DownloadTorrent(magnetLink)
 	if err != nil {
 		s.root.App.logAndPub(err, "Failed to download torrent metadata")
 		return 0

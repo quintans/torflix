@@ -71,7 +71,7 @@ func (c *Download) Close() {
 	c.client = nil
 }
 
-func (c *Download) DownloadTorrent(query, link string) ([]*torrent.File, error) {
+func (c *Download) DownloadTorrent(link string) ([]*torrent.File, error) {
 	var err error
 	c.client, err = c.torCliFact(link)
 	if err != nil {

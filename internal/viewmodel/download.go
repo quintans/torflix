@@ -11,7 +11,7 @@ import (
 )
 
 type DownloadService interface {
-	DownloadTorrent(query, magnetLink string) ([]*torrent.File, error)
+	DownloadTorrent(magnetLink string) ([]*torrent.File, error)
 	DownloadSubtitles(file *torrent.File, originalQuery string) (string, int, error)
 	ServeFile(ctx context.Context, asyncError app.AsyncError, file *torrent.File, originalQuery string, setStats func(app.Stats)) (string, error)
 	Play(ctx context.Context, asyncError app.AsyncError, servingFile, subtitlesDir string, onClose func()) error
@@ -60,8 +60,8 @@ func (d *Download) Back() {
 	d.originalQuery = ""
 	d.queryAndSeason = ""
 	d.subtitlesDir = ""
-	d.Status.Clear()
-	d.Playable.Clear()
+	d.Status.Reset()
+	d.Playable.Reset()
 }
 
 func (d *Download) Init(fileToPlay *torrent.File, isFromList bool, originalQuery string) {

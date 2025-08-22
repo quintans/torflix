@@ -26,7 +26,7 @@ func NewDownloadList(service DownloadService) *DownloadList {
 }
 
 func (d *DownloadList) Back() {
-	d.FileItems.Clear()
+	d.FileItems.Reset()
 	d.originalQuery = ""
 }
 
