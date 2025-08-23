@@ -17,8 +17,8 @@ import (
 )
 
 func App(vm *viewmodel.ViewModel, _ *navigation.Navigator[*viewmodel.ViewModel]) (fyne.CanvasObject, func(bool)) {
-	search := container.NewStack()
-	cache := container.NewStack()
+	search := container.NewBorder(nil, nil, nil, nil)
+	cache := container.NewBorder(nil, nil, nil, nil)
 	settings := container.NewVBox()
 
 	tabs := container.NewAppTabs(
@@ -54,8 +54,9 @@ func App(vm *viewmodel.ViewModel, _ *navigation.Navigator[*viewmodel.ViewModel])
 
 	vm.App.Mount()
 
+	// loads search view into its tab
 	navigation.New[*viewmodel.ViewModel](search).To(vm, Search)
-
+	// loads cache view into its tab
 	navigation.New[*viewmodel.ViewModel](cache).To(vm, Cache)
 
 	return anchor.Container, func(bool) {
