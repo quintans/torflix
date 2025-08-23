@@ -9,6 +9,7 @@ type Notifier[T any] interface {
 	Bind(func(T)) func()
 	UnbindAll()
 	Notify(T)
+	Get() T
 	Reset()
 }
 

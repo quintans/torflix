@@ -8,6 +8,7 @@ import (
 	"fyne.io/fyne/v2/widget"
 	"github.com/quintans/torflix/internal/components"
 	"github.com/quintans/torflix/internal/lib/navigation"
+	"github.com/quintans/torflix/internal/model"
 	"github.com/quintans/torflix/internal/viewmodel"
 )
 
@@ -85,8 +86,18 @@ func Search(vm *viewmodel.ViewModel, navigator *navigation.Navigator[*viewmodel.
 	)
 	result.OnSelected = func(id widget.ListItemID) {
 		result.Hide()
-		data[id].Cached = true
-		nav := vm.Search.Download(data[id].Magnet)
+		d := data[id]
+		d.Cached = true
+		vm.Cache.Add(&model.CacheData{
+			Provider: d.Provider,
+			Name:     d.Name,
+			Magnet:   d.Magnet,
+			Size:     d.Size,
+			Seeds:    strconv.Itoa(d.Seeds),
+			Quality:  d.QualityName,
+			Hash:     d.Hash,
+		})
+		nav := vm.Search.Download(d.Magnet)
 		if navigate(vm, navigator, nav) {
 			return
 		}
@@ -100,7 +111,7 @@ func Search(vm *viewmodel.ViewModel, navigator *navigation.Navigator[*viewmodel.
 		result.UnselectAll()
 		result.Refresh()
 
-		nav := vm.Search.Search(subtitles.Checked)
+		nav := vm.Search.Search()
 		if navigate(vm, navigator, nav) {
 			return
 		}
@@ -115,7 +126,7 @@ func Search(vm *viewmodel.ViewModel, navigator *navigation.Navigator[*viewmodel.
 		}()
 	})
 
-	unbindClearCache := vm.App.CacheCleared.Bind(func(bool) {
+	unbindClearCache := vm.Cache.CacheCleared.Bind(func(bool) {
 		for i := range data {
 			data[i].Cached = false
 		}
@@ -140,16 +151,4 @@ func Search(vm *viewmodel.ViewModel, navigator *navigation.Navigator[*viewmodel.
 
 			vm.Search.Unmount()
 		}
-}
-
-func navigate(vm *viewmodel.ViewModel, navigator *navigation.Navigator[*viewmodel.ViewModel], destination viewmodel.DownloadType) bool {
-	switch destination {
-	case viewmodel.DownloadSingle:
-		navigator.To(vm, Download)
-	case viewmodel.DownloadMultiple:
-		navigator.To(vm, DownloadList)
-	default:
-		return false
-	}
-	return true
 }

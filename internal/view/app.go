@@ -17,19 +17,18 @@ import (
 )
 
 func App(vm *viewmodel.ViewModel, _ *navigation.Navigator[*viewmodel.ViewModel]) (fyne.CanvasObject, func(bool)) {
-	search := container.NewBorder(nil, nil, nil, nil)
-
-	sections := container.NewVBox()
-
-	appAddCacheSection(sections, vm)
+	search := container.NewStack()
+	cache := container.NewStack()
+	settings := container.NewVBox()
 
 	tabs := container.NewAppTabs(
 		container.NewTabItemWithIcon("Search", theme.SearchIcon(), search),
-		container.NewTabItemWithIcon("Settings", theme.SettingsIcon(), sections),
+		container.NewTabItemWithIcon("Cache", theme.StorageIcon(), cache),
+		container.NewTabItemWithIcon("Settings", theme.SettingsIcon(), settings),
 	)
 	tabs.SetTabLocation(container.TabLocationLeading)
 
-	unbindSubtitles := appAddSubtitlesSection(sections, vm)
+	unbindSubtitles := appAddSubtitlesSection(settings, vm)
 
 	enableTabs := func(u, p string) {
 		if u != "" && p != "" {
@@ -53,10 +52,11 @@ func App(vm *viewmodel.ViewModel, _ *navigation.Navigator[*viewmodel.ViewModel])
 	margin := float32(10)
 	anchor.Add(notification.Container(), mycontainer.AnchorConstraints{Top: &margin, Right: &margin})
 
-	vm.App.Init()
+	vm.App.Mount()
 
-	searchNavigator := navigation.New[*viewmodel.ViewModel](search)
-	searchNavigator.To(vm, Search)
+	navigation.New[*viewmodel.ViewModel](search).To(vm, Search)
+
+	navigation.New[*viewmodel.ViewModel](cache).To(vm, Cache)
 
 	return anchor.Container, func(bool) {
 		// this will never be called. It is here for completeness.
@@ -66,24 +66,6 @@ func App(vm *viewmodel.ViewModel, _ *navigation.Navigator[*viewmodel.ViewModel])
 		unbindUsername()
 		unbindPassword()
 	}
-}
-
-func appAddCacheSection(sections *fyne.Container, vm *viewmodel.ViewModel) {
-	clear := widget.NewButton("Clear Cache", func() {
-		vm.App.ClearCache()
-	})
-	clear.Importance = widget.WarningImportance
-
-	sections.Add(widget.NewLabel("Cache"))
-	sections.Add(canvas.NewLine(color.Gray{128}))
-	sections.Add(container.NewHBox(
-		widget.NewForm(
-			widget.NewFormItem("Directory", widget.NewLabelWithData(vm.App.CacheDir)),
-		),
-		layout.NewSpacer(),
-	))
-	sections.Add(container.NewHBox(clear, layout.NewSpacer()))
-	sections.Add(widget.NewSeparator())
 }
 
 func appAddSubtitlesSection(sections *fyne.Container, vm *viewmodel.ViewModel) func() {
@@ -149,4 +131,16 @@ func showNotification(notification *mycontainer.NotificationContainer) func(evt 
 			notification.ShowSuccess(evt.Message)
 		}
 	}
+}
+
+func navigate(vm *viewmodel.ViewModel, navigator *navigation.Navigator[*viewmodel.ViewModel], destination viewmodel.DownloadType) bool {
+	switch destination {
+	case viewmodel.DownloadSingle:
+		navigator.To(vm, Download)
+	case viewmodel.DownloadMultiple:
+		navigator.To(vm, DownloadList)
+	default:
+		return false
+	}
+	return true
 }

@@ -20,18 +20,17 @@ type DownloadService interface {
 }
 
 type Download struct {
-	root              *ViewModel
-	service           DownloadService
-	fileToPlay        *torrent.File
-	isFromList        bool
-	originalQuery     string
-	queryAndSeason    string
-	subtitlesDir      string
-	ctx               context.Context
-	cancel            func()
-	Status            bind.Notifier[app.Stats]
-	Playable          bind.Notifier[bool]
-	DownloadSubtitles bool
+	root           *ViewModel
+	service        DownloadService
+	fileToPlay     *torrent.File
+	isFromList     bool
+	originalQuery  string
+	queryAndSeason string
+	subtitlesDir   string
+	ctx            context.Context
+	cancel         func()
+	Status         bind.Notifier[app.Stats]
+	Playable       bind.Notifier[bool]
 }
 
 func NewDownload(service DownloadService) *Download {
@@ -88,7 +87,7 @@ func (d *Download) TorrentSubFilename() string {
 }
 
 func (d *Download) Serve() bool {
-	if d.DownloadSubtitles {
+	if d.root.Search.DownloadSubtitles.Get() {
 		t := timer.New(time.Second, func() {
 			d.root.eventBus.Publish(app.Loading{
 				Text: "Downloading subtitles",

@@ -145,7 +145,7 @@ func main() {
 	}
 
 	a := app.New()
-	w := a.NewWindow("TorFlix")
+	w := a.NewWindow(fmt.Sprintf("TorFlix v%s", gapp.Version))
 	w.Resize(fyne.NewSize(800, 600))
 
 	var escapeHandler func()
@@ -212,15 +212,20 @@ func main() {
 		sec,
 	)
 
+	cachedDir := filepath.Join(cacheDir, "cached")
+	cacheSvc := services.NewCache(cachedDir, mediaDir, torrentsDir, subtitlesDir)
+
 	appVm := viewmodel.NewApp(appSvc)
 	appVm.EscapeKey = escapeKey
 	searchVm := viewmodel.NewSearch(searchSvc, downloadSvc)
 	downloadVm := viewmodel.NewDownload(downloadSvc)
 	downloadListVm := viewmodel.NewDownloadList(downloadSvc)
+	cacheVm := viewmodel.NewCache(cacheDir, cacheSvc, downloadSvc)
 
 	vm := viewmodel.New(
 		eventbus.New(b),
 		appVm,
+		cacheVm,
 		searchVm,
 		downloadVm,
 		downloadListVm,

@@ -11,7 +11,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/anacrolix/torrent"
 	"github.com/quintans/faults"
 	"github.com/quintans/torflix/internal/app"
 	"github.com/quintans/torflix/internal/lib/bind"
@@ -117,13 +116,12 @@ func (s *Search) Unmount() {
 	s.SearchResults.UnbindAll()
 }
 
-func (s *Search) Search(subtitles bool) DownloadType {
-	s.root.Download.DownloadSubtitles = subtitles
+func (s *Search) Search() DownloadType {
 	query := s.Query.Get()
 	query = strings.TrimSpace(query)
 
 	model := model.NewSearch()
-	model.SetSubtitles(subtitles)
+	model.SetSubtitles(s.DownloadSubtitles.Get())
 	model.SetQuery(query)
 
 	err := model.SetQuery(query)
@@ -223,41 +221,7 @@ func (s *Search) Search(subtitles bool) DownloadType {
 }
 
 func (s *Search) Download(magnetLink string) DownloadType {
-	t := timer.New(time.Second, func() {
-		s.root.eventBus.Publish(app.Loading{
-			Text: "Downloading torrent metadata",
-			Show: true,
-		})
-	})
-
-	defer func() {
-		t.Stop()
-		s.root.eventBus.Publish(app.Loading{}) // hide spinner
-	}()
-
-	files, err := s.downloadService.DownloadTorrent(magnetLink)
-	if err != nil {
-		s.root.App.logAndPub(err, "Failed to download torrent metadata")
-		return 0
-	}
-
-	if len(files) == 0 {
-		s.root.App.ShowNotification.Notify(app.NewNotifyWarn("No media files found for magnet link"))
-		return 0
-	}
-
-	if len(files) == 1 {
-		s.root.Download.Init(files[0], false, s.originalQuery)
-		return DownloadSingle
-	}
-
-	gslices.SortFunc(files, func(i, j *torrent.File) int {
-		return cmp.Compare(i.DisplayPath(), j.DisplayPath())
-	})
-
-	s.root.DownloadList.Init(files, s.originalQuery)
-
-	return DownloadMultiple
+	return download(s.root, s.downloadService, s.originalQuery, magnetLink)
 }
 
 func (s *Search) collapseByHash(results []*SearchData) ([]*SearchData, error) {
