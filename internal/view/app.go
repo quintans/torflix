@@ -6,107 +6,77 @@ import (
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/canvas"
 	"fyne.io/fyne/v2/container"
-	"fyne.io/fyne/v2/dialog"
 	"fyne.io/fyne/v2/layout"
 	"fyne.io/fyne/v2/theme"
 	"fyne.io/fyne/v2/widget"
 	"github.com/quintans/torflix/internal/app"
 	"github.com/quintans/torflix/internal/components"
+	"github.com/quintans/torflix/internal/lib/navigation"
 	"github.com/quintans/torflix/internal/mycontainer"
+	"github.com/quintans/torflix/internal/viewmodel"
 )
 
-type ShowViewer interface {
-	ShowView(v fyne.CanvasObject)
-}
+func App(vm *viewmodel.ViewModel, _ *navigation.Navigator[*viewmodel.ViewModel]) (fyne.CanvasObject, func(bool)) {
+	search := container.NewStack()
+	cache := container.NewStack()
+	settings := container.NewVBox()
 
-type AppController interface {
-	ClearCache()
-	SetOpenSubtitles(username, password string)
-}
-
-type App struct {
-	window       fyne.Window
-	container    *fyne.Container
-	controller   AppController
-	clear        *widget.Button
-	notification *mycontainer.NotificationContainer
-	tabs         *container.AppTabs
-	loading      *dialog.CustomDialog
-	loadingText  *widget.Label
-}
-
-func NewApp(w fyne.Window) *App {
-	inifiniteProgress := widget.NewProgressBarInfinite()
-	inifiniteProgress.Start()
-	// Custom content for the dialog
-	loadingText := widget.NewLabel("")
-	customContent := container.NewVBox(
-		loadingText,
-		inifiniteProgress,
+	tabs := container.NewAppTabs(
+		container.NewTabItemWithIcon("Search", theme.SearchIcon(), search),
+		container.NewTabItemWithIcon("Cache", theme.StorageIcon(), cache),
+		container.NewTabItemWithIcon("Settings", theme.SettingsIcon(), settings),
 	)
+	tabs.SetTabLocation(container.TabLocationLeading)
 
-	// Create the dialog
-	dialog := dialog.NewCustomWithoutButtons("Working...", customContent, w)
+	unbindSubtitles := appAddSubtitlesSection(settings, vm)
 
-	return &App{
-		window:       w,
-		container:    container.NewBorder(nil, nil, nil, nil),
-		notification: mycontainer.NewNotification(),
-		loading:      dialog,
-		loadingText:  loadingText,
+	enableTabs := func(u, p string) {
+		if u != "" && p != "" {
+			appEnableAllTabs(tabs)
+			return
+		}
+		appDisableAllTabsButSettings(tabs)
+	}
+	unbindUsername := vm.App.OSUsername.Bind(func(s string) {
+		enableTabs(s, vm.App.OSPassword.Get())
+	})
+	unbindPassword := vm.App.OSPassword.Bind(func(s string) {
+		enableTabs(vm.App.OSUsername.Get(), s)
+	})
+
+	notification := mycontainer.NewNotification()
+	unbindNotificantions := vm.App.ShowNotification.Bind(showNotification(notification))
+
+	anchor := mycontainer.NewAnchor()
+	anchor.Add(tabs, mycontainer.FillConstraint)
+	margin := float32(10)
+	anchor.Add(notification.Container(), mycontainer.AnchorConstraints{Top: &margin, Right: &margin})
+
+	vm.App.Mount()
+
+	navigation.New[*viewmodel.ViewModel](search).To(vm, Search)
+
+	navigation.New[*viewmodel.ViewModel](cache).To(vm, Cache)
+
+	return anchor.Container, func(bool) {
+		// this will never be called. It is here for completeness.
+		unbindNotificantions()
+		unbindSubtitles()
+
+		unbindUsername()
+		unbindPassword()
 	}
 }
 
-func (v *App) SetController(controller AppController) {
-	v.controller = controller
-}
-
-func (v *App) Show(data app.AppData) {
-	sections := container.NewVBox()
-
-	v.addCacheSection(sections, data)
-	v.addSubtitlesSection(sections, data)
-
-	v.tabs = container.NewAppTabs(
-		container.NewTabItemWithIcon("Search", theme.SearchIcon(), v.container),
-		container.NewTabItemWithIcon("Settings", theme.SettingsIcon(), sections),
-	)
-	v.tabs.SetTabLocation(container.TabLocationLeading)
-
-	anchor := mycontainer.NewAnchor()
-	anchor.Add(v.tabs, mycontainer.FillConstraint)
-	margin := float32(10)
-	anchor.Add(v.notification.Container(), mycontainer.AnchorConstraints{Top: &margin, Right: &margin})
-
-	v.window.SetContent(anchor.Container)
-}
-
-func (v *App) addCacheSection(sections *fyne.Container, data app.AppData) {
-	v.clear = widget.NewButton("Clear Cache", func() {
-		v.controller.ClearCache()
-	})
-	v.clear.Importance = widget.WarningImportance
-
-	sections.Add(widget.NewLabel("Cache"))
-	sections.Add(canvas.NewLine(color.Gray{128}))
-	sections.Add(container.NewHBox(
-		widget.NewForm(
-			widget.NewFormItem("Directory", widget.NewLabel(data.CacheDir)),
-		),
-		layout.NewSpacer(),
-	))
-	sections.Add(container.NewHBox(v.clear, layout.NewSpacer()))
-	sections.Add(widget.NewSeparator())
-}
-
-func (v *App) addSubtitlesSection(sections *fyne.Container, data app.AppData) {
+func appAddSubtitlesSection(sections *fyne.Container, vm *viewmodel.ViewModel) func() {
 	sections.Add(widget.NewLabel("OpenSubtitles.com"))
 	sections.Add(canvas.NewLine(color.Gray{128}))
 
 	usernameEntry := widget.NewEntry()
-	usernameEntry.SetText(data.OpenSubtitles.Username)
+	unbindUsername := vm.App.OSUsername.Bind(usernameEntry.SetText)
+
 	passwordEntry := widget.NewPasswordEntry()
-	passwordEntry.SetText(data.OpenSubtitles.Password)
+	unbindPassword := vm.App.OSPassword.Bind(passwordEntry.SetText)
 
 	sections.Add(container.NewHBox(
 		widget.NewForm(
@@ -117,65 +87,60 @@ func (v *App) addSubtitlesSection(sections *fyne.Container, data app.AppData) {
 	),
 	)
 	bt := widget.NewButton("Change", func() {
-		v.controller.SetOpenSubtitles(usernameEntry.Text, passwordEntry.Text)
+		vm.App.SetOpenSubtitles(usernameEntry.Text, passwordEntry.Text)
 	})
 	bt.Importance = widget.HighImportance
 	sections.Add(container.NewHBox(bt, layout.NewSpacer()))
 	sections.Add(widget.NewSeparator())
+
+	return func() {
+		unbindUsername()
+		unbindPassword()
+	}
 }
 
-func (v *App) DisableAllTabsButSettings() {
-	v.tabs.SelectIndex(len(v.tabs.Items) - 1)
-	v.EnableTabs(false)
-}
-
-func (v *App) EnableTabs(enable bool) {
-	cur := v.tabs.SelectedIndex()
-
-	for k := range len(v.tabs.Items) {
-		if k == cur {
+func appDisableAllTabsButSettings(tabs *container.AppTabs) {
+	settingsIdx := len(tabs.Items) - 1
+	tabs.SelectIndex(settingsIdx)
+	for k := range len(tabs.Items) {
+		if k == settingsIdx {
 			continue
 		}
 
-		if enable {
-			v.tabs.EnableIndex(k)
-		} else {
-			v.tabs.DisableIndex(k)
+		tabs.DisableIndex(k)
+	}
+}
+
+func appEnableAllTabs(tabs *container.AppTabs) {
+	for k := range len(tabs.Items) {
+		tabs.EnableIndex(k)
+	}
+	tabs.SelectIndex(0)
+}
+
+func showNotification(notification *mycontainer.NotificationContainer) func(evt app.Notify) {
+	return func(evt app.Notify) {
+		switch evt.Type {
+		case app.NotifyError:
+			notification.ShowError(evt.Message)
+		case app.NotifyWarn:
+			notification.ShowWarning(evt.Message)
+		case app.NotifyInfo:
+			notification.ShowInfo(evt.Message)
+		case app.NotifySuccess:
+			notification.ShowSuccess(evt.Message)
 		}
 	}
 }
 
-func (v *App) ShowView(c fyne.CanvasObject) {
-	v.container.RemoveAll()
-	v.container.Add(c)
-	v.container.Refresh()
-}
-
-func (v *App) ShowNotification(evt app.Notify) {
-	switch evt.Type {
-	case app.NotifyError:
-		v.notification.ShowError(evt.Message)
-	case app.NotifyWarn:
-		v.notification.ShowWarning(evt.Message)
-	case app.NotifyInfo:
-		v.notification.ShowInfo(evt.Message)
-	case app.NotifySuccess:
-		v.notification.ShowSuccess(evt.Message)
+func navigate(vm *viewmodel.ViewModel, navigator *navigation.Navigator[*viewmodel.ViewModel], destination viewmodel.DownloadType) bool {
+	switch destination {
+	case viewmodel.DownloadSingle:
+		navigator.To(vm, Download)
+	case viewmodel.DownloadMultiple:
+		navigator.To(vm, DownloadList)
+	default:
+		return false
 	}
-}
-
-func (v *App) Loading(msg app.Loading) {
-	if msg.Text != "" {
-		v.loadingText.SetText(msg.Text)
-	}
-
-	if msg.Show {
-		v.loading.Show()
-		return
-	}
-
-	if msg.Text == "" && !msg.Show {
-		v.loading.Hide()
-		v.loadingText.SetText("")
-	}
+	return true
 }

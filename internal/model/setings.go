@@ -21,6 +21,7 @@ type Settings struct {
 
 type OpenSubtitles struct {
 	Username string `json:"username"`
+	Password string `json:"-"`
 }
 
 func NewSettings() *Settings {
@@ -39,6 +40,7 @@ func NewSettings() *Settings {
 		qualities:         qualities,
 		OpenSubtitles: OpenSubtitles{
 			Username: "",
+			Password: "",
 		},
 	}
 }

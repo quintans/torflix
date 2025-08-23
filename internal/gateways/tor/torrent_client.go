@@ -192,7 +192,7 @@ func (c *TorrentClient) Play(file *torrent.File) {
 	firstPieceIndex := file.Offset() * int64(t.NumPieces()) / t.Length()
 	endPieceIndex := (file.Offset() + file.Length()) * int64(t.NumPieces()) / t.Length()
 	// Prioritize the first % of the file.
-	firstPercentage := endPieceIndex * c.Config.DownloadAheadPercent / 200 // 0.5%
+	firstPercentage := endPieceIndex * c.Config.DownloadAheadPercent / 400 // 0.25%
 	for idx := firstPieceIndex; idx <= firstPercentage; idx++ {
 		t.Piece(int(idx)).SetPriority(torrent.PiecePriorityNow)
 	}

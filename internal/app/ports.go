@@ -10,47 +10,16 @@ import (
 )
 
 const (
-	Version = "0.1"
+	Version = "0.2"
 	Name    = "torflix"
 )
 
-type Controller interface {
-	OnEnter()
-}
-
-type Navigator interface {
-	Go(string)
-	Back()
-}
-
 type EventBus interface {
 	Publish(m Message)
-	Error(msg string, args ...any)
-	Warn(msg string, args ...any)
-	Success(msg string, args ...any)
-	Info(msg string, args ...any)
 }
 
 type Message interface {
 	Kind() string
-}
-
-type AppView interface {
-	Show(AppData)
-	ShowNotification(evt Notify)
-	DisableAllTabsButSettings()
-	EnableTabs(bool)
-	Loading(Loading)
-}
-
-type AppData struct {
-	CacheDir      string
-	OpenSubtitles OpenSubtitles
-}
-
-type OpenSubtitles struct {
-	Username string
-	Password string
 }
 
 type DownloadView interface {
@@ -58,16 +27,6 @@ type DownloadView interface {
 	SetStats(stats Stats)
 	EnablePlay()
 	DisablePlay()
-}
-
-type DownloadListView interface {
-	Show(files []FileItem)
-}
-
-type FileItem struct {
-	Name     string
-	Size     int64
-	Selected bool
 }
 
 type Stats struct {
@@ -129,4 +88,11 @@ type Secrets interface {
 
 type OpenSubtitlesSecret struct {
 	Password string `json:"password"`
+}
+
+type AsyncError func(err error, message string, args ...any)
+
+type SearchSettings struct {
+	Model     *model.Search
+	Providers []string
 }

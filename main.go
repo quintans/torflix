@@ -7,20 +7,25 @@ import (
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/app"
+	"fyne.io/fyne/v2/container"
+	"fyne.io/fyne/v2/dialog"
+	"fyne.io/fyne/v2/widget"
 	"github.com/quintans/faults"
 	gapp "github.com/quintans/torflix/internal/app"
-	"github.com/quintans/torflix/internal/controller"
+	"github.com/quintans/torflix/internal/app/services"
 	"github.com/quintans/torflix/internal/gateways/eventbus"
 	"github.com/quintans/torflix/internal/gateways/opensubtitles"
 	"github.com/quintans/torflix/internal/gateways/player"
 	"github.com/quintans/torflix/internal/gateways/repository"
 	"github.com/quintans/torflix/internal/gateways/secrets"
 	"github.com/quintans/torflix/internal/gateways/tor"
+	"github.com/quintans/torflix/internal/lib/bind"
 	"github.com/quintans/torflix/internal/lib/bus"
 	"github.com/quintans/torflix/internal/lib/extractor"
-	"github.com/quintans/torflix/internal/lib/navigator"
+	"github.com/quintans/torflix/internal/lib/navigation"
 	"github.com/quintans/torflix/internal/model"
 	"github.com/quintans/torflix/internal/view"
+	"github.com/quintans/torflix/internal/viewmodel"
 )
 
 var (
@@ -140,12 +145,18 @@ func main() {
 	}
 
 	a := app.New()
-	w := a.NewWindow("TorFlix")
+	w := a.NewWindow(fmt.Sprintf("TorFlix v%s", gapp.Version))
 	w.Resize(fyne.NewSize(800, 600))
+
+	var escapeHandler func()
 	w.Canvas().SetOnTypedKey(func(k *fyne.KeyEvent) {
 		if k.Name == fyne.KeyEscape && escapeHandler != nil {
 			escapeHandler()
 		}
+	})
+	escapeKey := bind.NewNotifier[func()]()
+	escapeKey.Bind(func(fn func()) {
+		escapeHandler = fn
 	})
 
 	db := repository.NewDB(cacheDir)
@@ -179,68 +190,54 @@ func main() {
 	}
 
 	b := bus.New()
-	eventBus := eventbus.New(b)
-	nav := navigator.New(b)
+	bus.Register(b, createDialogListener(w))
 
 	openSubtitlesClientFactory := func(usr, pwd string) gapp.SubtitlesClient {
 		return opensubtitles.New(usr, pwd)
 	}
 
 	sec := secrets.NewSecrets()
-
-	appView := view.NewApp(w)
-	searchView := view.NewSearch(appView)
-	downloadView := view.NewDownload(appView)
-	downloadListView := view.NewDownloadList(appView, eventBus)
-
-	searchCtrl, err := controller.NewSearch(searchView, nav, db, extractors, eventBus, torrentsDir)
+	appSvc := services.NewApp(db, sec, cacheDir, mediaDir, torrentsDir, subtitlesDir)
+	searchSvc, err := services.NewSearch(db, extractors, torrentsDir)
 	if err != nil {
-		panic(fmt.Sprintf("creating search controller: %s", err))
+		panic(fmt.Sprintf("creating search service: %s", err))
 	}
-
-	downloadCtrl := controller.NewDownload(
-		downloadView,
-		downloadListView,
+	downloadSvc := services.NewDownload(
 		db,
-		nav,
 		player.Player{},
 		torrentClientFactory(db, mediaDir, torrentsDir),
 		openSubtitlesClientFactory,
-		mediaDir,
 		torrentsDir,
 		subtitlesDir,
-		eventBus,
 		sec,
 	)
 
-	appCtrl := controller.NewApp(
-		appView,
-		map[string]gapp.Controller{
-			controller.SearchNavigation:   searchCtrl,
-			controller.DownloadNavigation: downloadCtrl,
-		},
-		eventBus,
-		db,
-		sec,
-		cacheDir,
+	cachedDir := filepath.Join(cacheDir, "cached")
+	cacheSvc := services.NewCache(cachedDir, mediaDir, torrentsDir, subtitlesDir)
+
+	appVm := viewmodel.NewApp(appSvc)
+	appVm.EscapeKey = escapeKey
+	searchVm := viewmodel.NewSearch(searchSvc, downloadSvc)
+	downloadVm := viewmodel.NewDownload(downloadSvc)
+	downloadListVm := viewmodel.NewDownloadList(downloadSvc)
+	cacheVm := viewmodel.NewCache(cacheDir, cacheSvc, downloadSvc)
+
+	vm := viewmodel.New(
+		eventbus.New(b),
+		appVm,
+		cacheVm,
+		searchVm,
+		downloadVm,
+		downloadListVm,
 	)
 
-	searchView.SetController(searchCtrl)
+	// Root container where screens are swapped
+	content := container.NewStack()
 
-	downloadView.SetController(downloadCtrl)
-	downloadListView.SetController(downloadCtrl)
-	appView.SetController(appCtrl)
+	navigator := navigation.New[*viewmodel.ViewModel](content)
+	navigator.To(vm, view.App)
 
-	bus.Register(b, appCtrl.OnNavigation)
-	bus.Register(b, downloadCtrl.ClearCache)
-	bus.Register(b, searchView.ClearCache)
-	bus.Register(b, appCtrl.ShowNotification)
-	bus.Register(b, appView.Loading)
-	bus.Register(b, onEscape)
-
-	appCtrl.OnEnter()
-	nav.Go(controller.SearchNavigation)
-
+	w.SetContent(content)
 	w.ShowAndRun()
 }
 
@@ -258,7 +255,7 @@ func torrentClientFactory(db *repository.DB, mediaDir, torrentFileDir string) fu
 				SeedAfterComplete:    settings.SeedAfterComplete(),
 				TCP:                  settings.TCP(),
 				DownloadAheadPercent: 1,
-				ValidMediaExtensions: controller.MediaExtensions,
+				ValidMediaExtensions: services.MediaExtensions,
 				UploadRate:           settings.UploadRate(),
 			},
 			torrentFileDir,
@@ -273,8 +270,31 @@ func torrentClientFactory(db *repository.DB, mediaDir, torrentFileDir string) fu
 	}
 }
 
-var escapeHandler func()
+func createDialogListener(w fyne.Window) func(msg gapp.Loading) {
+	inifiniteProgress := widget.NewProgressBarInfinite()
+	inifiniteProgress.Start()
+	// Custom content for the dialog
+	loadingText := widget.NewLabel("")
+	customContent := container.NewVBox(
+		loadingText,
+		inifiniteProgress,
+	)
 
-func onEscape(e gapp.EscapeHandler) {
-	escapeHandler = e.Handler
+	// Create the dialog
+	loading := dialog.NewCustomWithoutButtons("Working...", customContent, w)
+	return func(evt gapp.Loading) {
+		if evt.Text != "" {
+			loadingText.SetText(evt.Text)
+		}
+
+		if evt.Show {
+			loading.Show()
+			return
+		}
+
+		if evt.Text == "" && !evt.Show {
+			loading.Hide()
+			loadingText.SetText("")
+		}
+	}
 }

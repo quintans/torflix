@@ -17,7 +17,7 @@ type PillChoice struct {
 	rectangle *canvas.Rectangle
 	selected  bool
 
-	OnSelect func(bool) `json:"-"`
+	OnSelected func(bool) `json:"-"`
 }
 
 func NewPillChoice(text string, selected bool) *PillChoice {
@@ -62,8 +62,8 @@ func (p *PillChoice) Tapped(_ *fyne.PointEvent) {
 	p.selected = !p.selected
 	p.updateSelection()
 
-	if p.OnSelect != nil {
-		p.OnSelect(!p.selected)
+	if p.OnSelected != nil {
+		p.OnSelected(p.selected)
 	}
 
 	p.rectangle.Refresh()

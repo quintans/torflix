@@ -23,7 +23,7 @@ func New() *Bus {
 	}
 }
 
-func Register[T Message](bus *Bus, handler func(T)) uint64 {
+func Register[T Message](bus *Bus, handler func(T)) func() {
 	bus.mu.Lock()
 	defer bus.mu.Unlock()
 
@@ -40,10 +40,12 @@ func Register[T Message](bus *Bus, handler func(T)) uint64 {
 		handler(m.(T))
 	}
 
-	return id
+	return func() {
+		bus.unregister(kind, id)
+	}
 }
 
-func (b *Bus) Unregister(kind string, id uint64) {
+func (b *Bus) unregister(kind string, id uint64) {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 

@@ -44,7 +44,7 @@ func NewMagnetListItem() *MagnetListItem {
 	return li
 }
 
-func (item *MagnetListItem) SetData(data MagnetItem) {
+func (item *MagnetListItem) SetData(data *MagnetItem) {
 	item.Provider.SetText("Source: " + data.Provider)
 	item.Name.SetText(data.Name)
 	item.Seeds.SetText("Seeds: " + data.Seeds)
