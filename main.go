@@ -255,6 +255,7 @@ func torrentClientFactory(db *repository.DB, mediaDir, torrentFileDir string) fu
 				SeedAfterComplete:    settings.SeedAfterComplete(),
 				TCP:                  settings.TCP(),
 				DownloadAheadPercent: 1,
+				FirstDownloadPercent: 0.25,
 				ValidMediaExtensions: services.MediaExtensions,
 				UploadRate:           settings.UploadRate(),
 			},

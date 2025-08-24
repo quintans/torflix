@@ -44,7 +44,8 @@ type ClientConfig struct {
 	SeedAfterComplete    bool
 	TCP                  bool
 	MaxConnections       int
-	DownloadAheadPercent int64 // Prioritize first % of the file.
+	DownloadAheadPercent float64 // Prioritize next % of the file.
+	FirstDownloadPercent float64 // Prioritize first % of the file.
 	ValidMediaExtensions []string
 	UploadRate           int // bytes per second
 }
@@ -72,7 +73,7 @@ func NewTorrentClient(cfg ClientConfig, torrentDir, mediaDir string, resource st
 	}
 
 	if cfg.DownloadAheadPercent == 0 {
-		cfg.DownloadAheadPercent = 5
+		cfg.DownloadAheadPercent = 1
 	}
 
 	client := &TorrentClient{
@@ -192,7 +193,7 @@ func (c *TorrentClient) Play(file *torrent.File) {
 	firstPieceIndex := file.Offset() * int64(t.NumPieces()) / t.Length()
 	endPieceIndex := (file.Offset() + file.Length()) * int64(t.NumPieces()) / t.Length()
 	// Prioritize the first % of the file.
-	firstPercentage := endPieceIndex * c.Config.DownloadAheadPercent / 400 // 0.25%
+	firstPercentage := int64(float64(endPieceIndex) * (c.Config.FirstDownloadPercent / 100.0))
 	for idx := firstPieceIndex; idx <= firstPercentage; idx++ {
 		t.Piece(int(idx)).SetPriority(torrent.PiecePriorityNow)
 	}
@@ -303,9 +304,9 @@ func (c TorrentClient) GetFilteredFiles() []*torrent.File {
 // ReadyForPlayback checks if the torrent is ready for playback or not.
 // We wait until 0.5% of the torrent to start playing.
 func (c TorrentClient) ReadyForPlayback() bool {
-	percentage := float64(c.Progress) / float64(c.Size) * 200
+	percentage := float64(c.Progress) / float64(c.Size) * 100
 
-	return percentage > float64(c.Config.DownloadAheadPercent)
+	return percentage > float64(c.Config.FirstDownloadPercent)
 }
 
 // GetFile is an http handler to serve the biggest file managed by the client.
