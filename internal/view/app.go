@@ -16,27 +16,32 @@ import (
 	"github.com/quintans/torflix/internal/viewmodel"
 )
 
-func App(vm *viewmodel.ViewModel, _ *navigation.Navigator[*viewmodel.ViewModel]) (fyne.CanvasObject, func(bool)) {
-	search := container.NewBorder(nil, nil, nil, nil)
-	cache := container.NewBorder(nil, nil, nil, nil)
+func App(vm *viewmodel.ViewModel, navidator *navigation.Navigator[*viewmodel.ViewModel]) (fyne.CanvasObject, func(bool)) {
+	search, searchClose := Search(vm, navidator)
+	cache, cacheClose := Cache(vm, navidator)
+
 	settings := container.NewVBox()
 
 	tabs := container.NewAppTabs(
-		container.NewTabItemWithIcon("Search", theme.SearchIcon(), search),
-		container.NewTabItemWithIcon("Cache", theme.StorageIcon(), cache),
+		container.NewTabItemWithIcon("Search", theme.SearchIcon(), container.NewBorder(nil, nil, nil, nil, search)),
+		container.NewTabItemWithIcon("Cache", theme.StorageIcon(), container.NewBorder(nil, nil, nil, nil, cache)),
 		container.NewTabItemWithIcon("Settings", theme.SettingsIcon(), settings),
 	)
 	tabs.SetTabLocation(container.TabLocationLeading)
-
+	tabs.OnSelected = func(*container.TabItem) {
+		vm.App.SelectedTab = tabs.SelectedIndex()
+	}
 	unbindSubtitles := appAddSubtitlesSection(settings, vm)
 
+	selectedTab := vm.App.SelectedTab
 	enableTabs := func(u, p string) {
 		if u != "" && p != "" {
-			appEnableAllTabs(tabs)
+			appEnableAllTabs(tabs, selectedTab)
 			return
 		}
 		appDisableAllTabsButSettings(tabs)
 	}
+
 	unbindUsername := vm.App.OSUsername.Bind(func(s string) {
 		enableTabs(s, vm.App.OSPassword.Get())
 	})
@@ -54,18 +59,16 @@ func App(vm *viewmodel.ViewModel, _ *navigation.Navigator[*viewmodel.ViewModel])
 
 	vm.App.Mount()
 
-	// loads search view into its tab
-	navigation.New[*viewmodel.ViewModel](search).To(vm, Search)
-	// loads cache view into its tab
-	navigation.New[*viewmodel.ViewModel](cache).To(vm, Cache)
-
-	return anchor.Container, func(bool) {
+	return anchor.Container, func(back bool) {
 		// this will never be called. It is here for completeness.
 		unbindNotificantions()
 		unbindSubtitles()
 
 		unbindUsername()
 		unbindPassword()
+
+		searchClose(back)
+		cacheClose(back)
 	}
 }
 
@@ -112,11 +115,11 @@ func appDisableAllTabsButSettings(tabs *container.AppTabs) {
 	}
 }
 
-func appEnableAllTabs(tabs *container.AppTabs) {
+func appEnableAllTabs(tabs *container.AppTabs, index int) {
 	for k := range len(tabs.Items) {
 		tabs.EnableIndex(k)
 	}
-	tabs.SelectIndex(0)
+	tabs.SelectIndex(index)
 }
 
 func showNotification(notification *mycontainer.NotificationContainer) func(evt app.Notify) {

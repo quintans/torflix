@@ -18,6 +18,7 @@ type AppService interface {
 type App struct {
 	root             *ViewModel
 	service          AppService
+	SelectedTab      int
 	OSUsername       *bind.Bind[string]
 	OSPassword       *bind.Bind[string]
 	ShowNotification bind.Notifier[app.Notify]
