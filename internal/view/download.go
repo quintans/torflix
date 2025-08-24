@@ -23,12 +23,12 @@ func Download(vm *viewmodel.ViewModel, navigator *navigation.Navigator[*viewmode
 	uploadSpeed := widget.NewLabel("")
 	seeders := widget.NewLabel("")
 
-	back := widget.NewButton("Back", func() {
+	back := widget.NewButton("BACK", func() {
 		vm.Download.Back()
 		navigator.Back(vm)
 	})
 
-	play := widget.NewButton("Play", nil)
+	play := widget.NewButton("PLAY", nil)
 	play.Disable()
 	play.OnTapped = func() {
 		vm.Download.Play()

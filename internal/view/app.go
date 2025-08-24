@@ -90,7 +90,7 @@ func appAddSubtitlesSection(sections *fyne.Container, vm *viewmodel.ViewModel) f
 		layout.NewSpacer(),
 	),
 	)
-	bt := widget.NewButton("Change", func() {
+	bt := widget.NewButton("CHANGE", func() {
 		vm.App.SetOpenSubtitles(usernameEntry.Text, passwordEntry.Text)
 	})
 	bt.Importance = widget.HighImportance

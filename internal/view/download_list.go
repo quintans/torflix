@@ -52,7 +52,7 @@ func DownloadList(vm *viewmodel.ViewModel, navigator *navigation.Navigator[*view
 
 	return container.NewBorder(
 			nil,
-			container.NewHBox(layout.NewSpacer(), widget.NewButton("Back", func() {
+			container.NewHBox(layout.NewSpacer(), widget.NewButton("BACK", func() {
 				vm.DownloadList.Back()
 				navigator.Back(vm)
 			})),

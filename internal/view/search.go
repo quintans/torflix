@@ -13,7 +13,7 @@ import (
 )
 
 func Search(vm *viewmodel.ViewModel, navigator *navigation.Navigator[*viewmodel.ViewModel]) (fyne.CanvasObject, func(bool)) {
-	searchBtn := widget.NewButton("Search", nil)
+	searchBtn := widget.NewButton("SEARCH", nil)
 	searchBtn.Importance = widget.HighImportance
 
 	query := widget.NewEntry()

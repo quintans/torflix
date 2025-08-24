@@ -17,7 +17,7 @@ import (
 func Cache(vm *viewmodel.ViewModel, navigator *navigation.Navigator[*viewmodel.ViewModel]) (fyne.CanvasObject, func(bool)) {
 	vbox := container.NewVBox()
 
-	clear := widget.NewButton("Clear Cache", func() {
+	clear := widget.NewButton("CLEAR CACHE", func() {
 		vm.Cache.ClearCache()
 	})
 	clear.Importance = widget.WarningImportance
