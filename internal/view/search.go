@@ -7,12 +7,11 @@ import (
 	"fyne.io/fyne/v2/container"
 	"fyne.io/fyne/v2/widget"
 	"github.com/quintans/torflix/internal/components"
-	"github.com/quintans/torflix/internal/lib/navigation"
 	"github.com/quintans/torflix/internal/model"
 	"github.com/quintans/torflix/internal/viewmodel"
 )
 
-func Search(vm *viewmodel.ViewModel, navigator *navigation.Navigator[*viewmodel.ViewModel]) (fyne.CanvasObject, func(bool)) {
+func buildSearch(vm *viewmodel.App) fyne.CanvasObject {
 	searchBtn := widget.NewButton("SEARCH", nil)
 	searchBtn.Importance = widget.HighImportance
 
@@ -38,7 +37,7 @@ func Search(vm *viewmodel.ViewModel, navigator *navigation.Navigator[*viewmodel.
 	var pills []*components.PillChoice
 	pillContainer := container.NewHBox()
 
-	unbindSearchProviders := vm.Search.SelectedProviders.Bind(func(selectedProviders map[string]bool) {
+	vm.Search.SelectedProviders.Bind(func(selectedProviders map[string]bool) {
 		providers := vm.Search.Providers
 		pills = make([]*components.PillChoice, 0, len(providers))
 
@@ -60,7 +59,7 @@ func Search(vm *viewmodel.ViewModel, navigator *navigation.Navigator[*viewmodel.
 	})
 
 	subtitles := widget.NewCheck("Download Subtitles", nil)
-	unbindSubtitles := vm.Search.DownloadSubtitles.Bind(subtitles.SetChecked)
+	vm.Search.DownloadSubtitles.Bind(subtitles.SetChecked)
 	subtitles.OnChanged = vm.Search.DownloadSubtitles.Set
 
 	var data []*viewmodel.SearchData
@@ -88,7 +87,7 @@ func Search(vm *viewmodel.ViewModel, navigator *navigation.Navigator[*viewmodel.
 		result.Hide()
 		d := data[id]
 		d.Cached = true
-		vm.Cache.Add(&model.CacheData{
+		vm.Cache.Add(vm.Search.OriginalQuery, &model.CacheData{
 			Provider: d.Provider,
 			Name:     d.Name,
 			Magnet:   d.Magnet,
@@ -97,8 +96,7 @@ func Search(vm *viewmodel.ViewModel, navigator *navigation.Navigator[*viewmodel.
 			Quality:  d.QualityName,
 			Hash:     d.Hash,
 		})
-		nav := vm.Search.Download(d.Magnet)
-		if navigate(vm, navigator, nav) {
+		if vm.Search.Download(d.Magnet) {
 			return
 		}
 		result.Unselect(id)
@@ -111,14 +109,13 @@ func Search(vm *viewmodel.ViewModel, navigator *navigation.Navigator[*viewmodel.
 		result.UnselectAll()
 		result.Refresh()
 
-		nav := vm.Search.Search()
-		if navigate(vm, navigator, nav) {
+		if vm.Search.Search() {
 			return
 		}
 		searchBtn.Enable()
 	}
 
-	unbindSearchResult := vm.Search.SearchResults.Bind(func(results []*viewmodel.SearchData) {
+	vm.Search.SearchResults.Bind(func(results []*viewmodel.SearchData) {
 		// I don't understand why it only refreshes the UI with the cache flag in a goroutine
 		go func() {
 			data = results
@@ -126,29 +123,20 @@ func Search(vm *viewmodel.ViewModel, navigator *navigation.Navigator[*viewmodel.
 		}()
 	})
 
-	unbindClearCache := vm.Cache.CacheCleared.Bind(func(bool) {
+	vm.Cache.CacheCleared.Listen(func(bool) {
 		for i := range data {
 			data[i].Cached = false
 		}
 		result.Refresh()
 	})
 
-	vm.Search.Mount()
-
 	options := container.NewVBox(pillContainer, subtitles)
 
 	return container.NewBorder(
-			container.NewBorder(nil, options, nil, searchBtn, query),
-			nil,
-			nil,
-			nil,
-			result,
-		), func(bool) {
-			unbindSearchProviders()
-			unbindSearchResult()
-			unbindClearCache()
-			unbindSubtitles()
-
-			vm.Search.Unmount()
-		}
+		container.NewBorder(nil, options, nil, searchBtn, query),
+		nil,
+		nil,
+		nil,
+		result,
+	)
 }

@@ -19,14 +19,6 @@ import (
 	"github.com/quintans/torflix/internal/model"
 )
 
-type DownloadType int
-
-const (
-	_ DownloadType = iota
-	DownloadSingle
-	DownloadMultiple
-)
-
 type SearchService interface {
 	LoadSearch() (*app.SearchSettings, error)
 	SaveSearch(model *model.Search) error
@@ -34,15 +26,15 @@ type SearchService interface {
 }
 
 type Search struct {
-	root              *ViewModel
+	shared            *Shared
 	searchService     SearchService
 	downloadService   DownloadService
-	originalQuery     string
+	OriginalQuery     string
+	Providers         []string
 	Query             *bind.Bind[string]
 	SelectedProviders *bind.Bind[map[string]bool]
-	Providers         []string
 	DownloadSubtitles *bind.Bind[bool]
-	SearchResults     *bind.Bind[[]*SearchData]
+	SearchResults     bind.Notifier[[]*SearchData]
 }
 
 type SearchResult struct {
@@ -62,36 +54,38 @@ type SearchData struct {
 	Cached      bool
 }
 
-func NewSearch(searchService SearchService, downloadService DownloadService) *Search {
-	return &Search{
-		searchService:     searchService,
-		downloadService:   downloadService,
-		Query:             bind.New[string](),
-		SelectedProviders: bind.NewMap[string, bool](),
-		SearchResults:     bind.NewSlicePtr[SearchData](),
-		DownloadSubtitles: bind.New[bool](),
+func NewSearch(shared *Shared, searchService SearchService, downloadService DownloadService) *Search {
+	s := &Search{
+		shared:          shared,
+		searchService:   searchService,
+		downloadService: downloadService,
+		SearchResults:   bind.NewNotifier[[]*SearchData](),
 	}
+
+	s.mount()
+
+	return s
 }
 
-func (s *Search) Mount() {
+func (s *Search) mount() {
 	data, err := s.searchService.LoadSearch()
 	if err != nil {
-		s.root.App.logAndPub(err, "Failed to load search data")
+		s.shared.Error(err, "Failed to load search data")
 		return
 	}
-	s.Query.Set(data.Model.Query())
+	s.Query = bind.New[string](data.Model.Query())
 
 	if len(data.Providers) == 0 {
-		s.root.App.logAndPub(nil, "No providers available for search")
+		s.shared.Error(nil, "No providers available for search")
 		return
 	}
 
-	s.DownloadSubtitles.Set(data.Model.Subtitles())
-	s.DownloadSubtitles.Bind(func(subtitles bool) {
+	s.DownloadSubtitles = bind.New[bool](data.Model.Subtitles())
+	s.DownloadSubtitles.Listen(func(subtitles bool) {
 		data.Model.SetSubtitles(subtitles)
 		err := s.searchService.SaveSearch(data.Model)
 		if err != nil {
-			s.root.App.logAndPub(err, "Failed to save search data")
+			s.shared.Error(err, "Failed to save search data")
 		}
 	})
 
@@ -104,9 +98,7 @@ func (s *Search) Mount() {
 			selected[v] = true
 		}
 	}
-	s.SelectedProviders.Set(selected)
-
-	s.root.App.EscapeKey.Notify(nil)
+	s.SelectedProviders = bind.NewMap[string, bool](selected)
 }
 
 func (s *Search) Unmount() {
@@ -116,7 +108,7 @@ func (s *Search) Unmount() {
 	s.SearchResults.UnbindAll()
 }
 
-func (s *Search) Search() DownloadType {
+func (s *Search) Search() bool {
 	query := s.Query.Get()
 	query = strings.TrimSpace(query)
 
@@ -126,31 +118,31 @@ func (s *Search) Search() DownloadType {
 
 	err := model.SetQuery(query)
 	if err != nil {
-		s.root.App.logAndPub(err, "Failed to set query")
-		return 0
+		s.shared.Error(err, "Failed to set query")
+		return false
 	}
 
 	selectedProviders := s.SelectedProviders.Get()
 	isMagnet := strings.HasPrefix(query, "magnet:")
 
 	if !isMagnet && len(selectedProviders) == 0 {
-		s.root.App.ShowNotification.Notify(app.NewNotifyWarn("Please select at least one provider"))
-		return 0
+		s.shared.Warn("Please select at least one provider")
+		return false
 	}
 
 	model.SetSelectedProviders(selectedProviders)
 
 	err = s.searchService.SaveSearch(model)
 	if err != nil {
-		s.root.App.logAndPub(err, "Failed to save search")
-		return 0
+		s.shared.Error(err, "Failed to save search")
+		return false
 	}
 
 	if strings.HasPrefix(query, "magnet:") {
 		mag, err := magnet.Parse(query)
 		if err != nil {
-			s.root.App.logAndPub(err, "Failed to parse magnet link")
-			return 0
+			s.shared.Error(err, "Failed to parse magnet link")
+			return false
 		}
 		dn := mag.DisplayName
 		if dn == "" {
@@ -158,12 +150,12 @@ func (s *Search) Search() DownloadType {
 		} else {
 			dn = cleanTorrentName(dn)
 		}
-		s.originalQuery = dn
+		s.OriginalQuery = dn
 		return s.Download(query)
 	}
 
 	d := timer.New(time.Second, func() {
-		s.root.eventBus.Publish(app.Loading{
+		s.shared.Publish(app.Loading{
 			Text: "Searching torrents",
 			Show: true,
 		})
@@ -171,10 +163,10 @@ func (s *Search) Search() DownloadType {
 
 	defer func() {
 		d.Stop()
-		s.root.eventBus.Publish(app.Loading{}) // hide spinner
+		s.shared.Publish(app.Loading{}) // hide spinner
 	}()
 
-	s.originalQuery = query
+	s.OriginalQuery = query
 
 	providers := []string{}
 	for k, v := range selectedProviders {
@@ -185,27 +177,30 @@ func (s *Search) Search() DownloadType {
 
 	results, err := s.searchService.Search(query, providers)
 	if err != nil {
-		s.root.App.logAndPub(err, "Failed to search")
-		return 0
+		s.shared.Error(err, "Failed to search")
+		return false
 	}
 
 	data := []*SearchData{}
 	for _, r := range results {
 		if r.Error != nil {
-			s.root.App.logAndPub(r.Error, "Failed to search")
+			s.shared.Error(r.Error, "Failed to search")
 			continue
 		}
 		data = append(data, r.Data...)
 	}
 	// results may be >= 0 but the data may be empty (where seeds = 0)
 	if len(data) == 0 {
-		s.root.App.ShowNotification.Notify(app.NewNotifyWarn("No results found for query"))
+		s.shared.Info("No results found for query")
+		s.SearchResults.Notify(data)
+
+		return false
 	}
 
 	data, err = s.collapseByHash(data)
 	if err != nil {
-		s.root.App.logAndPub(err, "Failed to collapse by hash")
-		return 0
+		s.shared.Error(err, "Failed to collapse by hash")
+		return false
 	}
 
 	gslices.SortFunc(data, func(b, a *SearchData) int {
@@ -215,13 +210,13 @@ func (s *Search) Search() DownloadType {
 		return cmp.Compare(a.Seeds, b.Seeds)
 	})
 
-	s.SearchResults.Set(data)
+	s.SearchResults.Notify(data)
 
-	return 0
+	return false
 }
 
-func (s *Search) Download(magnetLink string) DownloadType {
-	return download(s.root, s.downloadService, s.originalQuery, magnetLink)
+func (s *Search) Download(magnetLink string) bool {
+	return download(s.shared, s.downloadService, s.OriginalQuery, magnetLink, s.DownloadSubtitles.Get())
 }
 
 func (s *Search) collapseByHash(results []*SearchData) ([]*SearchData, error) {
@@ -247,7 +242,7 @@ func (s *Search) collapseByHash(results []*SearchData) ([]*SearchData, error) {
 			magnets := make([]string, 0, len(group))
 			for _, r := range group {
 				if r.Magnet == "" {
-					s.root.App.ShowNotification.Notify(app.NewNotifyWarn("Empty magnet link. name=%s, provider=%s", r.Name, r.Provider))
+					s.shared.Warn("Empty magnet link. name=%s, provider=%s", r.Name, r.Provider)
 					continue
 				}
 				magnets = append(magnets, r.Magnet)

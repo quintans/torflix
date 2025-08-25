@@ -6,11 +6,12 @@ import (
 )
 
 type Notifier[T any] interface {
+	Listen(func(T)) func()
 	Bind(func(T)) func()
 	UnbindAll()
 	Notify(T)
 	Get() T
-	Reset()
+	Reset(T)
 }
 
 type handler[T any] interface {
@@ -29,36 +30,39 @@ type Bind[T any] struct {
 	mu        sync.RWMutex
 	listeners sync.Map // map[Handler[T]]struct{}
 	value     T
-	set       bool // indicates if the value has been set
 	equal     func(T, T) bool
 }
 
-func New[T comparable]() *Bind[T] {
+func New[T comparable](v T) *Bind[T] {
 	return &Bind[T]{
+		value: v,
 		equal: func(a, b T) bool {
 			return a == b
 		},
 	}
 }
 
-func NewSlice[T comparable]() *Bind[[]T] {
+func NewSlice[T comparable](v []T) *Bind[[]T] {
 	return &Bind[[]T]{
+		value: v,
 		equal: func(a, b []T) bool {
 			return slices.Equal(a, b)
 		},
 	}
 }
 
-func NewSlicePtr[T comparable]() *Bind[[]*T] {
+func NewSlicePtr[T comparable](v []*T) *Bind[[]*T] {
 	return &Bind[[]*T]{
+		value: v,
 		equal: func(a, b []*T) bool {
 			return slices.Equal(a, b)
 		},
 	}
 }
 
-func NewMap[K, V comparable]() *Bind[map[K]V] {
+func NewMap[K, V comparable](v map[K]V) *Bind[map[K]V] {
 	return &Bind[map[K]V]{
+		value: v,
 		equal: func(a, b map[K]V) bool {
 			if len(a) != len(b) {
 				return false
@@ -73,8 +77,9 @@ func NewMap[K, V comparable]() *Bind[map[K]V] {
 	}
 }
 
-func NewWithEqual[T any](equal func(T, T) bool) *Bind[T] {
+func NewWithEqual[T any](v T, equal func(T, T) bool) *Bind[T] {
 	return &Bind[T]{
+		value: v,
 		equal: equal,
 	}
 }
@@ -83,15 +88,18 @@ func NewNotifier[T any]() *Bind[T] {
 	return &Bind[T]{}
 }
 
+// Bind binds a handler and calls it immediately with the current value.
 func (b *Bind[T]) Bind(h func(T)) func() {
-	hh := &handle[T]{fn: h}
-
 	b.mu.RLock()
-	if b.set {
-		h(b.value) // call on bind
-	}
+	h(b.value) // call on bind
 	b.mu.RUnlock()
 
+	return b.Listen(h)
+}
+
+// Listen adds a handler to the list of listeners.
+func (b *Bind[T]) Listen(h func(T)) func() {
+	hh := &handle[T]{fn: h}
 	b.listeners.Store(hh, struct{}{})
 
 	return func() {
@@ -99,9 +107,11 @@ func (b *Bind[T]) Bind(h func(T)) func() {
 	}
 }
 
+// Set sets the value and notifies all listeners.
+// If the value as been set and is the same as the current value, it does nothing.
 func (b *Bind[T]) Set(value T) {
 	b.mu.RLock()
-	if b.set && (b.equal == nil || b.equal(b.value, value)) {
+	if b.equal == nil || b.equal(b.value, value) {
 		b.mu.RUnlock()
 		return
 	}
@@ -110,10 +120,10 @@ func (b *Bind[T]) Set(value T) {
 	b.Notify(value)
 }
 
+// Notify sets the value without and notifies all listeners.
 func (b *Bind[T]) Notify(value T) {
 	b.mu.Lock()
 	b.value = value
-	b.set = true // mark as set
 	b.mu.Unlock()
 
 	b.listeners.Range(func(k, _ any) bool {
@@ -122,6 +132,7 @@ func (b *Bind[T]) Notify(value T) {
 	})
 }
 
+// Get returns the current value.
 func (b *Bind[T]) Get() T {
 	b.mu.RLock()
 	defer b.mu.RUnlock()
@@ -129,12 +140,11 @@ func (b *Bind[T]) Get() T {
 	return b.value
 }
 
-func (b *Bind[T]) Reset() {
+func (b *Bind[T]) Reset(v T) {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 
-	b.value = *new(T)
-	b.set = false
+	b.value = v
 	b.listeners.Clear()
 }
 

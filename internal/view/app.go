@@ -9,16 +9,13 @@ import (
 	"fyne.io/fyne/v2/layout"
 	"fyne.io/fyne/v2/theme"
 	"fyne.io/fyne/v2/widget"
-	"github.com/quintans/torflix/internal/app"
 	"github.com/quintans/torflix/internal/components"
-	"github.com/quintans/torflix/internal/lib/navigation"
-	"github.com/quintans/torflix/internal/mycontainer"
 	"github.com/quintans/torflix/internal/viewmodel"
 )
 
-func App(vm *viewmodel.ViewModel, navidator *navigation.Navigator[*viewmodel.ViewModel]) (fyne.CanvasObject, func(bool)) {
-	search, searchClose := Search(vm, navidator)
-	cache, cacheClose := Cache(vm, navidator)
+func App(vm *viewmodel.App) (fyne.CanvasObject, func(bool)) {
+	search := buildSearch(vm)
+	cache := buildCache(vm)
 
 	settings := container.NewVBox()
 
@@ -29,11 +26,11 @@ func App(vm *viewmodel.ViewModel, navidator *navigation.Navigator[*viewmodel.Vie
 	)
 	tabs.SetTabLocation(container.TabLocationLeading)
 	tabs.OnSelected = func(*container.TabItem) {
-		vm.App.SelectedTab = tabs.SelectedIndex()
+		vm.SelectedTab = tabs.SelectedIndex()
 	}
-	unbindSubtitles := appAddSubtitlesSection(settings, vm)
+	appAddSubtitlesSection(settings, vm)
 
-	selectedTab := vm.App.SelectedTab
+	selectedTab := vm.SelectedTab
 	enableTabs := func(u, p string) {
 		if u != "" && p != "" {
 			appEnableAllTabs(tabs, selectedTab)
@@ -42,45 +39,27 @@ func App(vm *viewmodel.ViewModel, navidator *navigation.Navigator[*viewmodel.Vie
 		appDisableAllTabsButSettings(tabs)
 	}
 
-	unbindUsername := vm.App.OSUsername.Bind(func(s string) {
-		enableTabs(s, vm.App.OSPassword.Get())
+	vm.OSUsername.Bind(func(s string) {
+		enableTabs(s, vm.OSPassword.Get())
 	})
-	unbindPassword := vm.App.OSPassword.Bind(func(s string) {
-		enableTabs(vm.App.OSUsername.Get(), s)
+	vm.OSPassword.Bind(func(s string) {
+		enableTabs(vm.OSUsername.Get(), s)
 	})
 
-	notification := mycontainer.NewNotification()
-	unbindNotificantions := vm.App.ShowNotification.Bind(showNotification(notification))
-
-	anchor := mycontainer.NewAnchor()
-	anchor.Add(tabs, mycontainer.FillConstraint)
-	margin := float32(10)
-	anchor.Add(notification.Container(), mycontainer.AnchorConstraints{Top: &margin, Right: &margin})
-
-	vm.App.Mount()
-
-	return anchor.Container, func(back bool) {
-		// this will never be called. It is here for completeness.
-		unbindNotificantions()
-		unbindSubtitles()
-
-		unbindUsername()
-		unbindPassword()
-
-		searchClose(back)
-		cacheClose(back)
+	return tabs, func(bool) {
+		vm.Unmount()
 	}
 }
 
-func appAddSubtitlesSection(sections *fyne.Container, vm *viewmodel.ViewModel) func() {
+func appAddSubtitlesSection(sections *fyne.Container, vm *viewmodel.App) {
 	sections.Add(widget.NewLabel("OpenSubtitles.com"))
 	sections.Add(canvas.NewLine(color.Gray{128}))
 
 	usernameEntry := widget.NewEntry()
-	unbindUsername := vm.App.OSUsername.Bind(usernameEntry.SetText)
+	usernameEntry.SetText(vm.OSUsername.Get())
 
 	passwordEntry := widget.NewPasswordEntry()
-	unbindPassword := vm.App.OSPassword.Bind(passwordEntry.SetText)
+	passwordEntry.SetText(vm.OSPassword.Get())
 
 	sections.Add(container.NewHBox(
 		widget.NewForm(
@@ -91,16 +70,11 @@ func appAddSubtitlesSection(sections *fyne.Container, vm *viewmodel.ViewModel) f
 	),
 	)
 	bt := widget.NewButton("CHANGE", func() {
-		vm.App.SetOpenSubtitles(usernameEntry.Text, passwordEntry.Text)
+		vm.SetOpenSubtitles(usernameEntry.Text, passwordEntry.Text)
 	})
 	bt.Importance = widget.HighImportance
 	sections.Add(container.NewHBox(bt, layout.NewSpacer()))
 	sections.Add(widget.NewSeparator())
-
-	return func() {
-		unbindUsername()
-		unbindPassword()
-	}
 }
 
 func appDisableAllTabsButSettings(tabs *container.AppTabs) {
@@ -120,31 +94,4 @@ func appEnableAllTabs(tabs *container.AppTabs, index int) {
 		tabs.EnableIndex(k)
 	}
 	tabs.SelectIndex(index)
-}
-
-func showNotification(notification *mycontainer.NotificationContainer) func(evt app.Notify) {
-	return func(evt app.Notify) {
-		switch evt.Type {
-		case app.NotifyError:
-			notification.ShowError(evt.Message)
-		case app.NotifyWarn:
-			notification.ShowWarning(evt.Message)
-		case app.NotifyInfo:
-			notification.ShowInfo(evt.Message)
-		case app.NotifySuccess:
-			notification.ShowSuccess(evt.Message)
-		}
-	}
-}
-
-func navigate(vm *viewmodel.ViewModel, navigator *navigation.Navigator[*viewmodel.ViewModel], destination viewmodel.DownloadType) bool {
-	switch destination {
-	case viewmodel.DownloadSingle:
-		navigator.To(vm, Download)
-	case viewmodel.DownloadMultiple:
-		navigator.To(vm, DownloadList)
-	default:
-		return false
-	}
-	return true
 }

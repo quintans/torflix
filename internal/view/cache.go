@@ -9,12 +9,11 @@ import (
 	"fyne.io/fyne/v2/layout"
 	"fyne.io/fyne/v2/widget"
 	"github.com/quintans/torflix/internal/components"
-	"github.com/quintans/torflix/internal/lib/navigation"
 	"github.com/quintans/torflix/internal/model"
 	"github.com/quintans/torflix/internal/viewmodel"
 )
 
-func Cache(vm *viewmodel.ViewModel, navigator *navigation.Navigator[*viewmodel.ViewModel]) (fyne.CanvasObject, func(bool)) {
+func buildCache(vm *viewmodel.App) fyne.CanvasObject {
 	vbox := container.NewVBox()
 
 	clear := widget.NewButton("CLEAR CACHE", func() {
@@ -55,15 +54,14 @@ func Cache(vm *viewmodel.ViewModel, navigator *navigation.Navigator[*viewmodel.V
 	)
 	result.OnSelected = func(id widget.ListItemID) {
 		result.Hide()
-		nav := vm.Cache.Download(data[id])
-		if navigate(vm, navigator, nav) {
+		if vm.Cache.Download(data[id], vm.Search.DownloadSubtitles.Get()) {
 			return
 		}
 		result.Unselect(id)
 		result.Show()
 	}
 
-	unbindSearchResult := vm.Cache.Results.Bind(func(results []*model.CacheData) {
+	vm.Cache.Results.Bind(func(results []*model.CacheData) {
 		data = results
 		result.Refresh()
 	})
@@ -71,9 +69,5 @@ func Cache(vm *viewmodel.ViewModel, navigator *navigation.Navigator[*viewmodel.V
 
 	vm.Cache.Mount()
 
-	return vbox, func(bool) {
-		unbindSearchResult()
-
-		vm.Cache.Unmount()
-	}
+	return vbox
 }

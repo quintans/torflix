@@ -1,7 +1,6 @@
 package viewmodel
 
 import (
-	"github.com/quintans/torflix/internal/app"
 	"github.com/quintans/torflix/internal/lib/bind"
 	"github.com/quintans/torflix/internal/model"
 )
@@ -13,7 +12,7 @@ type CacheService interface {
 }
 
 type Cache struct {
-	root            *ViewModel
+	shared          *Shared
 	cacheService    CacheService
 	downloadService DownloadService
 	CacheDir        string
@@ -21,8 +20,9 @@ type Cache struct {
 	Results         bind.Notifier[[]*model.CacheData]
 }
 
-func NewCache(cacheDir string, cacheService CacheService, downloadService DownloadService) *Cache {
+func NewCache(shared *Shared, cacheDir string, cacheService CacheService, downloadService DownloadService) *Cache {
 	return &Cache{
+		shared:          shared,
 		cacheService:    cacheService,
 		downloadService: downloadService,
 		CacheDir:        cacheDir,
@@ -34,7 +34,7 @@ func NewCache(cacheDir string, cacheService CacheService, downloadService Downlo
 func (c *Cache) Mount() {
 	data, err := c.cacheService.LoadAllCached()
 	if err != nil {
-		c.root.App.logAndPub(err, "Failed to load cached data")
+		c.shared.Error(err, "Failed to load cached data")
 		return
 	}
 	c.Results.Notify(data)
@@ -45,20 +45,20 @@ func (c *Cache) Unmount() {
 	c.CacheCleared.UnbindAll()
 }
 
-func (c *Cache) Download(data *model.CacheData) DownloadType {
-	return download(c.root, c.downloadService, data.OriginalQuery, data.Magnet)
+func (c *Cache) Download(data *model.CacheData, subtitles bool) bool {
+	return download(c.shared, c.downloadService, data.OriginalQuery, data.Magnet, subtitles)
 }
 
-func (c *Cache) Add(data *model.CacheData) {
+func (c *Cache) Add(originalSearchQuery string, data *model.CacheData) {
 	for _, d := range c.Results.Get() {
 		if d.Magnet == data.Magnet {
 			return
 		}
 	}
 
-	data.OriginalQuery = c.root.Search.originalQuery
+	data.OriginalQuery = originalSearchQuery
 	if err := c.cacheService.SaveCache(data); err != nil {
-		c.root.App.logAndPub(err, "Failed to save cache")
+		c.shared.Error(err, "Failed to save cache")
 		return
 	}
 	list := c.Results.Get()
@@ -68,7 +68,7 @@ func (c *Cache) Add(data *model.CacheData) {
 func (c *Cache) ClearCache() {
 	err := c.cacheService.ClearCache()
 	if err != nil {
-		c.root.App.logAndPub(err, "Failed to clear cache")
+		c.shared.Error(err, "Failed to clear cache")
 		return
 	}
 
@@ -76,5 +76,5 @@ func (c *Cache) ClearCache() {
 
 	c.Results.Notify(nil)
 
-	c.root.App.ShowNotification.Notify(app.NewNotifyInfo("Cache cleared"))
+	c.shared.Success("Cache cleared")
 }

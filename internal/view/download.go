@@ -12,11 +12,10 @@ import (
 	"github.com/dustin/go-humanize"
 	"github.com/quintans/torflix/internal/app"
 	"github.com/quintans/torflix/internal/components"
-	"github.com/quintans/torflix/internal/lib/navigation"
 	"github.com/quintans/torflix/internal/viewmodel"
 )
 
-func Download(vm *viewmodel.ViewModel, navigator *navigation.Navigator[*viewmodel.ViewModel]) (fyne.CanvasObject, func(bool)) {
+func Download(vm *viewmodel.Download) (fyne.CanvasObject, func(bool)) {
 	stream := widget.NewLabel("")
 	progress := widget.NewLabel("")
 	downloadSpeed := widget.NewLabel("")
@@ -24,17 +23,17 @@ func Download(vm *viewmodel.ViewModel, navigator *navigation.Navigator[*viewmode
 	seeders := widget.NewLabel("")
 
 	back := widget.NewButton("BACK", func() {
-		vm.Download.Back()
-		navigator.Back(vm)
+		vm.Back()
+
 	})
 
 	play := widget.NewButton("PLAY", nil)
 	play.Disable()
 	play.OnTapped = func() {
-		vm.Download.Play()
+		vm.Play()
 	}
 	play.Importance = widget.HighImportance
-	vm.Download.Playable.Bind(func(playable bool) {
+	vm.Playable.Bind(func(playable bool) {
 		if playable {
 			play.Enable()
 		} else {
@@ -45,9 +44,9 @@ func Download(vm *viewmodel.ViewModel, navigator *navigation.Navigator[*viewmode
 	widgets := []fyne.CanvasObject{}
 	name := canvas.NewText("Name", color.White)
 	name.Alignment = fyne.TextAlignTrailing
-	widgets = append(widgets, name, widget.NewLabel(vm.Download.TorrentFilename()))
+	widgets = append(widgets, name, widget.NewLabel(vm.TorrentFilename()))
 
-	subFile := vm.Download.TorrentSubFilename()
+	subFile := vm.TorrentSubFilename()
 	if subFile != "" {
 		sf := canvas.NewText("Sub File", color.White)
 		sf.Alignment = fyne.TextAlignTrailing
@@ -76,7 +75,7 @@ func Download(vm *viewmodel.ViewModel, navigator *navigation.Navigator[*viewmode
 
 	tracker := components.NewPieceTracker(nil)
 
-	unbindStats := vm.Download.Status.Bind(func(stats app.Stats) {
+	vm.Status.Bind(func(stats app.Stats) {
 		if stats.Pieces == nil {
 			return
 		}
@@ -101,8 +100,8 @@ func Download(vm *viewmodel.ViewModel, navigator *navigation.Navigator[*viewmode
 		tracker.SetPieces(stats.Pieces)
 	})
 
-	if vm.Download.Serve() {
-		vm.Download.Play()
+	if vm.Serve() {
+		vm.Play()
 	}
 
 	content := container.NewVBox(
@@ -116,7 +115,8 @@ func Download(vm *viewmodel.ViewModel, navigator *navigation.Navigator[*viewmode
 			layout.NewSpacer(),
 		),
 	)
-	return content, func(bool) {
-		unbindStats()
-	}
+
+	// the close func is nil, because it can only go back
+	// going back the viewmodel will be GC
+	return content, nil
 }

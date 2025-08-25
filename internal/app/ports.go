@@ -22,13 +22,6 @@ type Message interface {
 	Kind() string
 }
 
-type DownloadView interface {
-	Show(torName string, subFile string)
-	SetStats(stats Stats)
-	EnablePlay()
-	DisablePlay()
-}
-
 type Stats struct {
 	Stream           string
 	ReadyForPlayback bool

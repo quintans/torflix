@@ -20,11 +20,9 @@ type DownloadService interface {
 }
 
 type Download struct {
-	root           *ViewModel
+	shared         *Shared
+	params         app.DownloadParams
 	service        DownloadService
-	fileToPlay     *torrent.File
-	isFromList     bool
-	originalQuery  string
 	queryAndSeason string
 	subtitlesDir   string
 	ctx            context.Context
@@ -33,12 +31,22 @@ type Download struct {
 	Playable       bind.Notifier[bool]
 }
 
-func NewDownload(service DownloadService) *Download {
-	return &Download{
+func NewDownload(shared *Shared, service DownloadService, params app.DownloadParams) *Download {
+	d := &Download{
+		shared:   shared,
 		service:  service,
 		Status:   bind.NewNotifier[app.Stats](),
 		Playable: bind.NewNotifier[bool](),
+		params:   params,
 	}
+
+	d.shared.EscapeKey.Notify(func() {
+		d.Back()
+	})
+
+	d.ctx, d.cancel = context.WithCancel(context.Background())
+
+	return d
 }
 
 func (d *Download) Back() {
@@ -46,50 +54,30 @@ func (d *Download) Back() {
 		d.cancel()
 	}
 
-	if d.isFromList {
+	if d.params.PauseTorrentOnClose {
 		d.service.Pause()
 	} else {
 		d.service.Close()
 	}
 
-	d.cancel = nil
-	d.ctx = nil
-	d.fileToPlay = nil
-	d.isFromList = false
-	d.originalQuery = ""
-	d.queryAndSeason = ""
-	d.subtitlesDir = ""
-	d.Status.Reset()
-	d.Playable.Reset()
-}
-
-func (d *Download) Init(fileToPlay *torrent.File, isFromList bool, originalQuery string) {
-	d.fileToPlay = fileToPlay
-	d.isFromList = isFromList
-	d.originalQuery = originalQuery
-
-	d.root.App.EscapeKey.Notify(func() {
-		d.Back()
-	})
-
-	d.ctx, d.cancel = context.WithCancel(context.Background())
+	d.shared.Navigate.Back()
 }
 
 func (d *Download) TorrentFilename() string {
-	return d.fileToPlay.Torrent().Name()
+	return d.params.FileToPlay.Torrent().Name()
 }
 
 func (d *Download) TorrentSubFilename() string {
-	if d.isFromList {
-		return d.fileToPlay.DisplayPath()
+	if d.params.PauseTorrentOnClose {
+		return d.params.FileToPlay.DisplayPath()
 	}
 	return ""
 }
 
 func (d *Download) Serve() bool {
-	if d.root.Search.DownloadSubtitles.Get() {
+	if d.params.Subtitles {
 		t := timer.New(time.Second, func() {
-			d.root.eventBus.Publish(app.Loading{
+			d.shared.Publish(app.Loading{
 				Text: "Downloading subtitles",
 				Show: true,
 			})
@@ -97,27 +85,27 @@ func (d *Download) Serve() bool {
 
 		defer func() {
 			t.Stop()
-			d.root.eventBus.Publish(app.Loading{}) // hide spinner
+			d.shared.Publish(app.Loading{}) // hide spinner
 		}()
 
-		subtitlesDir, downloaded, err := d.service.DownloadSubtitles(d.fileToPlay, d.originalQuery)
+		subtitlesDir, downloaded, err := d.service.DownloadSubtitles(d.params.FileToPlay, d.params.OriginalQuery)
 		if err != nil {
-			d.root.App.logAndPub(err, "Failed to download subtitles")
+			d.shared.Error(err, "Failed to download subtitles")
 			return false
 		}
 
 		if downloaded == 0 {
-			d.root.App.ShowNotification.Notify(app.NewNotifyInfo("No subtitles found"))
+			d.shared.Info("No subtitles found")
 		}
 
 		d.subtitlesDir = subtitlesDir
 	}
 
-	queryAndSeason, err := d.service.ServeFile(d.ctx, d.root.App.logAndPub, d.fileToPlay, d.originalQuery, func(stats app.Stats) {
+	queryAndSeason, err := d.service.ServeFile(d.ctx, d.shared.Error, d.params.FileToPlay, d.params.OriginalQuery, func(stats app.Stats) {
 		d.Status.Notify(stats)
 	})
 	if err != nil {
-		d.root.App.logAndPub(err, "Failed to serve file")
+		d.shared.Error(err, "Failed to serve file")
 		return false
 	}
 
@@ -129,10 +117,10 @@ func (d *Download) Serve() bool {
 func (d *Download) Play() {
 	d.Playable.Notify(false)
 
-	err := d.service.Play(d.ctx, d.root.App.logAndPub, d.queryAndSeason, d.subtitlesDir, func() {
+	err := d.service.Play(d.ctx, d.shared.Error, d.queryAndSeason, d.subtitlesDir, func() {
 		d.Playable.Notify(true)
 	})
 	if err != nil {
-		d.root.App.logAndPub(err, "Failed to play file")
+		d.shared.Error(err, "Failed to play file")
 	}
 }

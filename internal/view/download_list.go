@@ -6,11 +6,10 @@ import (
 	"fyne.io/fyne/v2/layout"
 	"fyne.io/fyne/v2/widget"
 	"github.com/dustin/go-humanize"
-	"github.com/quintans/torflix/internal/lib/navigation"
 	"github.com/quintans/torflix/internal/viewmodel"
 )
 
-func DownloadList(vm *viewmodel.ViewModel, navigator *navigation.Navigator[*viewmodel.ViewModel]) (fyne.CanvasObject, func(bool)) {
+func DownloadList(vm *viewmodel.DownloadList) (fyne.CanvasObject, func(bool)) {
 	var fileItems []*viewmodel.FileItem
 	result := widget.NewList(
 		func() int {
@@ -39,13 +38,10 @@ func DownloadList(vm *viewmodel.ViewModel, navigator *navigation.Navigator[*view
 		},
 	)
 	result.OnSelected = func(id widget.ListItemID) {
-		vm.DownloadList.Select(fileItems[id])
-		navigator.To(vm, Download)
-		// result.Unselect(id)
-		// result.Refresh()
+		vm.Select(fileItems[id])
 	}
 
-	unbindFileItems := vm.DownloadList.FileItems.Bind(func(items []*viewmodel.FileItem) {
+	vm.FileItems.Bind(func(items []*viewmodel.FileItem) {
 		fileItems = items
 		result.Refresh()
 	})
@@ -53,13 +49,12 @@ func DownloadList(vm *viewmodel.ViewModel, navigator *navigation.Navigator[*view
 	return container.NewBorder(
 			nil,
 			container.NewHBox(layout.NewSpacer(), widget.NewButton("BACK", func() {
-				vm.DownloadList.Back()
-				navigator.Back(vm)
+				vm.Back()
 			})),
 			nil,
 			nil,
 			result,
 		), func(bool) {
-			unbindFileItems()
+			vm.Unmount()
 		}
 }

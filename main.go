@@ -13,7 +13,6 @@ import (
 	"github.com/quintans/faults"
 	gapp "github.com/quintans/torflix/internal/app"
 	"github.com/quintans/torflix/internal/app/services"
-	"github.com/quintans/torflix/internal/gateways/eventbus"
 	"github.com/quintans/torflix/internal/gateways/opensubtitles"
 	"github.com/quintans/torflix/internal/gateways/player"
 	"github.com/quintans/torflix/internal/gateways/repository"
@@ -24,6 +23,7 @@ import (
 	"github.com/quintans/torflix/internal/lib/extractor"
 	"github.com/quintans/torflix/internal/lib/navigation"
 	"github.com/quintans/torflix/internal/model"
+	"github.com/quintans/torflix/internal/mycontainer"
 	"github.com/quintans/torflix/internal/view"
 	"github.com/quintans/torflix/internal/viewmodel"
 )
@@ -154,8 +154,10 @@ func main() {
 			escapeHandler()
 		}
 	})
-	escapeKey := bind.NewNotifier[func()]()
-	escapeKey.Bind(func(fn func()) {
+	shared := &viewmodel.Shared{
+		EscapeKey: bind.NewNotifier[func()](),
+	}
+	shared.EscapeKey.Bind(func(fn func()) {
 		escapeHandler = fn
 	})
 
@@ -191,6 +193,7 @@ func main() {
 
 	b := bus.New()
 	bus.Register(b, createDialogListener(w))
+	shared.Publish = b.Publish
 
 	openSubtitlesClientFactory := func(usr, pwd string) gapp.SubtitlesClient {
 		return opensubtitles.New(usr, pwd)
@@ -215,29 +218,53 @@ func main() {
 	cachedDir := filepath.Join(cacheDir, "cached")
 	cacheSvc := services.NewCache(cachedDir, mediaDir, torrentsDir, subtitlesDir)
 
-	appVm := viewmodel.NewApp(appSvc)
-	appVm.EscapeKey = escapeKey
-	searchVm := viewmodel.NewSearch(searchSvc, downloadSvc)
-	downloadVm := viewmodel.NewDownload(downloadSvc)
-	downloadListVm := viewmodel.NewDownloadList(downloadSvc)
-	cacheVm := viewmodel.NewCache(cacheDir, cacheSvc, downloadSvc)
-
-	vm := viewmodel.New(
-		eventbus.New(b),
-		appVm,
-		cacheVm,
-		searchVm,
-		downloadVm,
-		downloadListVm,
-	)
-
 	// Root container where screens are swapped
 	content := container.NewStack()
 
-	navigator := navigation.New[*viewmodel.ViewModel](content)
-	navigator.To(vm, view.App)
+	// Notification container
+	notification := mycontainer.NewNotification()
+	shared.ShowNotification = bind.NewNotifier[gapp.Notify]()
+	shared.ShowNotification.Bind(showNotification(notification))
 
-	w.SetContent(content)
+	anchor := mycontainer.NewAnchor()
+	anchor.Add(content, mycontainer.FillConstraint)
+	margin := float32(10)
+	anchor.Add(notification.Container(), mycontainer.AnchorConstraints{Top: &margin, Right: &margin})
+
+	navigator := navigation.New(content)
+	shared.Navigate = navigator
+
+	navigator.Factory = func(to any) navigation.ViewFactory {
+		switch t := to.(type) {
+		case gapp.AppParams:
+			vm := viewmodel.NewApp(
+				shared,
+				appSvc,
+				searchSvc,
+				cacheSvc,
+				downloadSvc,
+				cachedDir,
+			)
+			return func() (fyne.CanvasObject, func(bool)) {
+				return view.App(vm)
+			}
+		case gapp.DownloadListParams:
+			vm := viewmodel.NewDownloadList(shared, downloadSvc, t)
+			return func() (fyne.CanvasObject, func(bool)) {
+				return view.DownloadList(vm)
+			}
+		case gapp.DownloadParams:
+			vm := viewmodel.NewDownload(shared, downloadSvc, t)
+			return func() (fyne.CanvasObject, func(bool)) {
+				return view.Download(vm)
+			}
+		}
+
+		return nil
+	}
+	navigator.To(gapp.AppParams{})
+
+	w.SetContent(anchor.Container)
 	w.ShowAndRun()
 }
 
@@ -296,6 +323,21 @@ func createDialogListener(w fyne.Window) func(msg gapp.Loading) {
 		if evt.Text == "" && !evt.Show {
 			loading.Hide()
 			loadingText.SetText("")
+		}
+	}
+}
+
+func showNotification(notification *mycontainer.NotificationContainer) func(evt gapp.Notify) {
+	return func(evt gapp.Notify) {
+		switch evt.Type {
+		case gapp.NotifyError:
+			notification.ShowError(evt.Message)
+		case gapp.NotifyWarn:
+			notification.ShowWarning(evt.Message)
+		case gapp.NotifyInfo:
+			notification.ShowInfo(evt.Message)
+		case gapp.NotifySuccess:
+			notification.ShowSuccess(evt.Message)
 		}
 	}
 }

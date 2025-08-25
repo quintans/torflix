@@ -2,12 +2,14 @@ package viewmodel
 
 import (
 	"github.com/anacrolix/torrent"
+	"github.com/quintans/torflix/internal/app"
 	"github.com/quintans/torflix/internal/lib/bind"
 	"github.com/quintans/torflix/internal/lib/slices"
 )
 
 type DownloadList struct {
-	root          *ViewModel
+	shared        *Shared
+	params        app.DownloadListParams
 	service       DownloadService
 	originalQuery string
 	FileItems     bind.Notifier[[]*FileItem]
@@ -18,34 +20,44 @@ type FileItem struct {
 	File     *torrent.File
 }
 
-func NewDownloadList(service DownloadService) *DownloadList {
-	return &DownloadList{
+func NewDownloadList(shared *Shared, service DownloadService, params app.DownloadListParams) *DownloadList {
+	d := &DownloadList{
+		shared:    shared,
 		service:   service,
+		params:    params,
 		FileItems: bind.NewNotifier[[]*FileItem](),
 	}
-}
 
-func (d *DownloadList) Back() {
-	d.FileItems.Reset()
-	d.originalQuery = ""
-}
-
-func (d *DownloadList) Init(files []*torrent.File, originalQuery string) {
-	fileItems := slices.Map(files, func(it *torrent.File) *FileItem {
+	fileItems := slices.Map(params.Files, func(it *torrent.File) *FileItem {
 		return &FileItem{
 			Selected: it.BytesCompleted() >= it.Length(),
 			File:     it,
 		}
 	})
 	d.FileItems.Notify(fileItems)
-	d.originalQuery = originalQuery
 
-	d.root.App.EscapeKey.Notify(func() {
+	d.shared.EscapeKey.Notify(func() {
 		d.Back()
 	})
+
+	return d
+}
+
+func (d *DownloadList) Unmount() {
+	d.FileItems.UnbindAll()
+}
+
+func (d *DownloadList) Back() {
+	d.service.Close()
+	d.shared.Navigate.Back()
 }
 
 func (d *DownloadList) Select(item *FileItem) {
 	item.Selected = true
-	d.root.Download.Init(item.File, true, d.originalQuery)
+	d.shared.Navigate.To(app.DownloadParams{
+		FileToPlay:          item.File,
+		PauseTorrentOnClose: true,
+		OriginalQuery:       d.originalQuery,
+		Subtitles:           d.params.Subtitles,
+	})
 }

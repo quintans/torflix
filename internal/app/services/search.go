@@ -20,6 +20,8 @@ type Search struct {
 	extractors []app.Extractor
 	providers  []string
 	torrentDir string
+
+	search *model.Search
 }
 
 func NewSearch(
