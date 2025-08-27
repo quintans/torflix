@@ -181,7 +181,7 @@ func (b *Bind[T]) UnbindAll() {
 
 func doInMain[T any](h func(T)) func(T) {
 	return func(v T) {
-		fyne.Do(func() {
+		fyne.DoAndWait(func() {
 			h(v)
 		})
 	}

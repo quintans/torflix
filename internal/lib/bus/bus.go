@@ -65,7 +65,7 @@ func (b *Bus) Publish(m Message) {
 	b.mu.Unlock()
 
 	for _, handler := range handlers {
-		go fyne.Do(func() {
+		go fyne.DoAndWait(func() {
 			handler(m)
 		})
 	}
