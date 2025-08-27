@@ -31,9 +31,9 @@ type Search struct {
 	downloadService   DownloadService
 	OriginalQuery     string
 	Providers         []string
-	Query             *bind.Bind[string]
-	SelectedProviders *bind.Bind[map[string]bool]
-	DownloadSubtitles *bind.Bind[bool]
+	Query             bind.Setter[string]
+	SelectedProviders bind.Setter[map[string]bool]
+	DownloadSubtitles bind.Setter[bool]
 	SearchResults     bind.Notifier[[]*SearchData]
 }
 
@@ -212,7 +212,7 @@ func (s *Search) Search() bool {
 
 	s.SearchResults.Notify(data)
 
-	return false
+	return true
 }
 
 func (s *Search) Download(magnetLink string) bool {

@@ -39,10 +39,10 @@ func App(vm *viewmodel.App) (fyne.CanvasObject, func(bool)) {
 		appDisableAllTabsButSettings(tabs)
 	}
 
-	vm.OSUsername.Bind(func(s string) {
+	vm.OSUsername.BindInMain(func(s string) {
 		enableTabs(s, vm.OSPassword.Get())
 	})
-	vm.OSPassword.Bind(func(s string) {
+	vm.OSPassword.BindInMain(func(s string) {
 		enableTabs(vm.OSUsername.Get(), s)
 	})
 

@@ -3,13 +3,26 @@ package bind
 import (
 	"slices"
 	"sync"
+
+	"fyne.io/fyne/v2"
 )
 
+type Setter[T any] interface {
+	Set(T)
+	Common[T]
+}
+
 type Notifier[T any] interface {
-	Listen(func(T)) func()
-	Bind(func(T)) func()
-	UnbindAll()
 	Notify(T)
+	Common[T]
+}
+
+type Common[T any] interface {
+	Listen(func(T)) func()
+	ListenInMain(func(T)) func()
+	Bind(func(T)) func()
+	BindInMain(func(T)) func()
+	UnbindAll()
 	Get() T
 	Reset(T)
 }
@@ -91,10 +104,18 @@ func NewNotifier[T any]() *Bind[T] {
 // Bind binds a handler and calls it immediately with the current value.
 func (b *Bind[T]) Bind(h func(T)) func() {
 	b.mu.RLock()
-	h(b.value) // call on bind
+	v := b.value
 	b.mu.RUnlock()
 
+	go h(v) // call immediately with current value
+
 	return b.Listen(h)
+}
+
+// BindInMain binds a handler to be called in the main thread.
+// It should be used only inside views.
+func (b *Bind[T]) BindInMain(h func(T)) func() {
+	return b.Bind(doInMain(h))
 }
 
 // Listen adds a handler to the list of listeners.
@@ -105,6 +126,12 @@ func (b *Bind[T]) Listen(h func(T)) func() {
 	return func() {
 		b.listeners.Delete(hh)
 	}
+}
+
+// ListenInMain adds a handler to the list of listeners to be executed in the main thread.
+// It should be used only inside views.
+func (b *Bind[T]) ListenInMain(h func(T)) func() {
+	return b.Listen(doInMain(h))
 }
 
 // Set sets the value and notifies all listeners.
@@ -127,7 +154,7 @@ func (b *Bind[T]) Notify(value T) {
 	b.mu.Unlock()
 
 	b.listeners.Range(func(k, _ any) bool {
-		k.(handler[T]).handle(value)
+		go k.(handler[T]).handle(value)
 		return true
 	})
 }
@@ -150,4 +177,12 @@ func (b *Bind[T]) Reset(v T) {
 
 func (b *Bind[T]) UnbindAll() {
 	b.listeners.Clear()
+}
+
+func doInMain[T any](h func(T)) func(T) {
+	return func(v T) {
+		fyne.Do(func() {
+			h(v)
+		})
+	}
 }

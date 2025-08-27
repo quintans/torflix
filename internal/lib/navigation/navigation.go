@@ -57,7 +57,7 @@ func (n *Navigator) To(to any) {
 	n.stack = append(n.stack, next)
 
 	n.container.Objects = []fyne.CanvasObject{screen}
-	n.container.Refresh()
+	fyne.Do(n.container.Refresh)
 }
 
 func (n *Navigator) Reset(to any) {

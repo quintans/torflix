@@ -24,7 +24,6 @@ func Download(vm *viewmodel.Download) (fyne.CanvasObject, func(bool)) {
 
 	back := widget.NewButton("BACK", func() {
 		vm.Back()
-
 	})
 
 	play := widget.NewButton("PLAY", nil)
@@ -33,7 +32,7 @@ func Download(vm *viewmodel.Download) (fyne.CanvasObject, func(bool)) {
 		vm.Play()
 	}
 	play.Importance = widget.HighImportance
-	vm.Playable.Bind(func(playable bool) {
+	vm.Playable.BindInMain(func(playable bool) {
 		if playable {
 			play.Enable()
 		} else {
@@ -75,7 +74,7 @@ func Download(vm *viewmodel.Download) (fyne.CanvasObject, func(bool)) {
 
 	tracker := components.NewPieceTracker(nil)
 
-	vm.Status.Bind(func(stats app.Stats) {
+	vm.Status.BindInMain(func(stats app.Stats) {
 		if stats.Pieces == nil {
 			return
 		}
@@ -100,9 +99,11 @@ func Download(vm *viewmodel.Download) (fyne.CanvasObject, func(bool)) {
 		tracker.SetPieces(stats.Pieces)
 	})
 
-	if vm.Serve() {
-		vm.Play()
-	}
+	go func() {
+		if vm.Serve() {
+			vm.Play()
+		}
+	}()
 
 	content := container.NewVBox(
 		container.New(layout.NewFormLayout(), widgets...),

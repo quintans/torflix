@@ -41,7 +41,7 @@ func DownloadList(vm *viewmodel.DownloadList) (fyne.CanvasObject, func(bool)) {
 		vm.Select(fileItems[id])
 	}
 
-	vm.FileItems.Bind(func(items []*viewmodel.FileItem) {
+	vm.FileItems.BindInMain(func(items []*viewmodel.FileItem) {
 		fileItems = items
 		result.Refresh()
 	})

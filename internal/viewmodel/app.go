@@ -17,8 +17,8 @@ type App struct {
 	downloadService DownloadService
 	appService      AppService
 	SelectedTab     int
-	OSUsername      *bind.Bind[string]
-	OSPassword      *bind.Bind[string]
+	OSUsername      bind.Setter[string]
+	OSPassword      bind.Setter[string]
 	Cache           *Cache
 	Search          *Search
 }

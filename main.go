@@ -157,7 +157,7 @@ func main() {
 	shared := &viewmodel.Shared{
 		EscapeKey: bind.NewNotifier[func()](),
 	}
-	shared.EscapeKey.Bind(func(fn func()) {
+	shared.EscapeKey.BindInMain(func(fn func()) {
 		escapeHandler = fn
 	})
 
@@ -224,7 +224,7 @@ func main() {
 	// Notification container
 	notification := mycontainer.NewNotification()
 	shared.ShowNotification = bind.NewNotifier[gapp.Notify]()
-	shared.ShowNotification.Bind(showNotification(notification))
+	shared.ShowNotification.ListenInMain(showNotification(notification))
 
 	anchor := mycontainer.NewAnchor()
 	anchor.Add(content, mycontainer.FillConstraint)

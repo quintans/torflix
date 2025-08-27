@@ -54,15 +54,13 @@ func buildCache(vm *viewmodel.App) fyne.CanvasObject {
 	)
 	result.OnSelected = func(id widget.ListItemID) {
 		result.Hide()
-		if vm.Cache.Download(data[id], vm.Search.DownloadSubtitles.Get()) {
-			return
-		}
-		result.Unselect(id)
-		result.Show()
+		go vm.Cache.Download(data[id], vm.Search.DownloadSubtitles.Get())
 	}
 
-	vm.Cache.Results.Bind(func(results []*model.CacheData) {
+	vm.Cache.Results.BindInMain(func(results []*model.CacheData) {
 		data = results
+		result.Show()
+		result.UnselectAll()
 		result.Refresh()
 	})
 	vbox.Add(result)
