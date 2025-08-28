@@ -18,7 +18,7 @@ func buildSearch(vm *viewmodel.App) fyne.CanvasObject {
 	query := widget.NewEntry()
 	query.SetPlaceHolder("Enter search...")
 
-	vm.Search.Query.BindInMain(query.SetText)
+	vm.Search.Query.BindPtrInMain(&query.Text)
 	query.OnChanged = func(text string) {
 		vm.Search.Query.Set(text)
 		if text == "" {

@@ -22,6 +22,7 @@ type Common[T any] interface {
 	ListenInMain(func(T)) func()
 	Bind(func(T)) func()
 	BindInMain(func(T)) func()
+	BindPtrInMain(*T) func()
 	UnbindAll()
 	Get() T
 	Reset(T)
@@ -116,6 +117,12 @@ func (b *Bind[T]) Bind(h func(T)) func() {
 // It should be used only inside views.
 func (b *Bind[T]) BindInMain(h func(T)) func() {
 	return b.Bind(doInMain(h))
+}
+
+func (b *Bind[T]) BindPtrInMain(h *T) func() {
+	return b.Bind(doInMain(func(v T) {
+		*h = v
+	}))
 }
 
 // Listen adds a handler to the list of listeners.
