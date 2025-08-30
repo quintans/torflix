@@ -19,7 +19,7 @@ type navigation struct {
 
 // Navigator manages screen navigation with a simple stack
 type Navigator struct {
-	stack     []navigation
+	stack     []*navigation
 	container *fyne.Container
 	Factory   func(any) ViewFactory
 }
@@ -50,7 +50,7 @@ func (n *Navigator) To(to any) {
 		}
 	}
 
-	next := navigation{
+	next := &navigation{
 		view:  view,
 		close: close,
 	}
@@ -73,6 +73,7 @@ func (n *Navigator) Back() {
 
 	// Pop last screen
 	last := n.stack[len(n.stack)-1]
+	n.stack[len(n.stack)-1] = nil // avoid memory leak
 	n.stack = n.stack[:len(n.stack)-1]
 
 	if last.close != nil {

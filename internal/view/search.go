@@ -59,7 +59,7 @@ func buildSearch(vm *viewmodel.App) fyne.CanvasObject {
 	})
 
 	subtitles := widget.NewCheck("Download Subtitles", nil)
-	vm.Search.DownloadSubtitles.BindInMain(subtitles.SetChecked)
+	vm.Search.DownloadSubtitles.BindPtrInMain(&subtitles.Checked)
 	subtitles.OnChanged = vm.Search.DownloadSubtitles.Set
 
 	var data []*viewmodel.SearchData
@@ -116,6 +116,7 @@ func buildSearch(vm *viewmodel.App) fyne.CanvasObject {
 
 	vm.Search.SearchResults.BindInMain(func(results []*viewmodel.SearchData) {
 		data = results
+		searchBtn.Enable()
 		result.Show()
 		result.UnselectAll()
 		result.Refresh()
