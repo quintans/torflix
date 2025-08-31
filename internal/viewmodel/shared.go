@@ -14,7 +14,6 @@ import (
 type Shared struct {
 	Navigate         *navigation.Navigator
 	ShowNotification bind.Notifier[app.Notify]
-	EscapeKey        bind.Notifier[func()]
 	Publish          func(msg bus.Message)
 }
 

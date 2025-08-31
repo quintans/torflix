@@ -40,10 +40,6 @@ func NewDownload(shared *Shared, service DownloadService, params app.DownloadPar
 		params:   params,
 	}
 
-	d.shared.EscapeKey.Notify(func() {
-		d.Back()
-	})
-
 	d.ctx, d.cancel = context.WithCancel(context.Background())
 
 	return d
@@ -74,7 +70,7 @@ func (d *Download) TorrentSubFilename() string {
 	return ""
 }
 
-func (d *Download) Serve() bool {
+func (d *Download) ServeAsync() bool {
 	if d.params.Subtitles {
 		t := timer.New(time.Second, func() {
 			d.shared.Publish(app.Loading{
@@ -102,7 +98,7 @@ func (d *Download) Serve() bool {
 	}
 
 	queryAndSeason, err := d.service.ServeFile(d.ctx, d.shared.Error, d.params.FileToPlay, d.params.OriginalQuery, func(stats app.Stats) {
-		d.Status.Notify(stats)
+		d.Status.NotifyAsync(stats)
 	})
 	if err != nil {
 		d.shared.Error(err, "Failed to serve file")
@@ -118,7 +114,7 @@ func (d *Download) Play() {
 	d.Playable.Notify(false)
 
 	err := d.service.Play(d.ctx, d.shared.Error, d.queryAndSeason, d.subtitlesDir, func() {
-		d.Playable.Notify(true)
+		d.Playable.NotifyAsync(true)
 	})
 	if err != nil {
 		d.shared.Error(err, "Failed to play file")

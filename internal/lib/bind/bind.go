@@ -9,20 +9,21 @@ import (
 
 type Setter[T any] interface {
 	Set(T)
+	SetAsync(T)
 	Common[T]
 }
 
 type Notifier[T any] interface {
 	Notify(T)
+	NotifyAsync(T)
 	Common[T]
 }
 
 type Common[T any] interface {
 	Listen(func(T)) func()
-	ListenInMain(func(T)) func()
+	ListenPtr(*T) func()
 	Bind(func(T)) func()
-	BindInMain(func(T)) func()
-	BindPtrInMain(*T) func()
+	BindPtr(*T) func()
 	UnbindAll()
 	Get() T
 	Reset(T)
@@ -108,21 +109,18 @@ func (b *Bind[T]) Bind(h func(T)) func() {
 	v := b.value
 	b.mu.RUnlock()
 
-	go h(v) // call immediately with current value
+	h(v) // call immediately with current value
 
 	return b.Listen(h)
 }
 
-// BindInMain binds a handler to be called in the main thread.
-// It should be used only inside views.
-func (b *Bind[T]) BindInMain(h func(T)) func() {
-	return b.Bind(doInMain(h))
-}
-
-func (b *Bind[T]) BindPtrInMain(h *T) func() {
-	return b.Bind(doInMain(func(v T) {
+// BindPtr creates a listener around a pointer.
+// useful to assign values to a widget without triggering change events.
+// eg: BindPtr(&query.Text)
+func (b *Bind[T]) BindPtr(h *T) func() {
+	return b.Bind(func(v T) {
 		*h = v
-	}))
+	})
 }
 
 // Listen adds a handler to the list of listeners.
@@ -135,10 +133,13 @@ func (b *Bind[T]) Listen(h func(T)) func() {
 	}
 }
 
-// ListenInMain adds a handler to the list of listeners to be executed in the main thread.
-// It should be used only inside views.
-func (b *Bind[T]) ListenInMain(h func(T)) func() {
-	return b.Listen(doInMain(h))
+// ListenPtr creates a listener around a pointer.
+// useful to assign values to a widget without triggering change events.
+// eg: ListenPtr(&query.Text)
+func (b *Bind[T]) ListenPtr(h *T) func() {
+	return b.Listen(func(v T) {
+		*h = v
+	})
 }
 
 // Set sets the value and notifies all listeners.
@@ -154,6 +155,12 @@ func (b *Bind[T]) Set(value T) {
 	b.Notify(value)
 }
 
+func (b *Bind[T]) SetAsync(value T) {
+	fyne.DoAndWait(func() {
+		b.Set(value)
+	})
+}
+
 // Notify sets the value without and notifies all listeners.
 func (b *Bind[T]) Notify(value T) {
 	b.mu.Lock()
@@ -161,8 +168,14 @@ func (b *Bind[T]) Notify(value T) {
 	b.mu.Unlock()
 
 	b.listeners.Range(func(k, _ any) bool {
-		go k.(handler[T]).handle(value)
+		k.(handler[T]).handle(value)
 		return true
+	})
+}
+
+func (b *Bind[T]) NotifyAsync(value T) {
+	fyne.DoAndWait(func() {
+		b.Notify(value)
 	})
 }
 
@@ -184,12 +197,4 @@ func (b *Bind[T]) Reset(v T) {
 
 func (b *Bind[T]) UnbindAll() {
 	b.listeners.Clear()
-}
-
-func doInMain[T any](h func(T)) func(T) {
-	return func(v T) {
-		fyne.DoAndWait(func() {
-			h(v)
-		})
-	}
 }

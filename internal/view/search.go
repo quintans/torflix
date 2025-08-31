@@ -18,7 +18,7 @@ func buildSearch(vm *viewmodel.App) fyne.CanvasObject {
 	query := widget.NewEntry()
 	query.SetPlaceHolder("Enter search...")
 
-	vm.Search.Query.BindPtrInMain(&query.Text)
+	vm.Search.Query.BindPtr(&query.Text)
 	query.OnChanged = func(text string) {
 		vm.Search.Query.Set(text)
 		if text == "" {
@@ -37,7 +37,7 @@ func buildSearch(vm *viewmodel.App) fyne.CanvasObject {
 	var pills []*components.PillChoice
 	pillContainer := container.NewHBox()
 
-	vm.Search.SelectedProviders.BindInMain(func(selectedProviders map[string]bool) {
+	vm.Search.SelectedProviders.Bind(func(selectedProviders map[string]bool) {
 		providers := vm.Search.Providers
 		pills = make([]*components.PillChoice, 0, len(providers))
 
@@ -59,7 +59,7 @@ func buildSearch(vm *viewmodel.App) fyne.CanvasObject {
 	})
 
 	subtitles := widget.NewCheck("Download Subtitles", nil)
-	vm.Search.DownloadSubtitles.BindPtrInMain(&subtitles.Checked)
+	vm.Search.DownloadSubtitles.BindPtr(&subtitles.Checked)
 	subtitles.OnChanged = vm.Search.DownloadSubtitles.Set
 
 	var data []*viewmodel.SearchData
@@ -106,7 +106,7 @@ func buildSearch(vm *viewmodel.App) fyne.CanvasObject {
 		result.Refresh()
 
 		go func() {
-			if !vm.Search.Search() {
+			if !vm.Search.SearchAsync() {
 				fyne.DoAndWait(func() {
 					searchBtn.Enable()
 				})
@@ -114,7 +114,7 @@ func buildSearch(vm *viewmodel.App) fyne.CanvasObject {
 		}()
 	}
 
-	vm.Search.SearchResults.BindInMain(func(results []*viewmodel.SearchData) {
+	vm.Search.SearchResults.Bind(func(results []*viewmodel.SearchData) {
 		data = results
 		searchBtn.Enable()
 		result.Show()
@@ -122,7 +122,7 @@ func buildSearch(vm *viewmodel.App) fyne.CanvasObject {
 		result.Refresh()
 	})
 
-	vm.Cache.CacheCleared.ListenInMain(func(bool) {
+	vm.Cache.CacheCleared.Listen(func(bool) {
 		for i := range data {
 			data[i].Cached = false
 		}

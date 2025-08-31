@@ -57,15 +57,12 @@ func buildCache(vm *viewmodel.App) fyne.CanvasObject {
 		go vm.Cache.Download(data[id], vm.Search.DownloadSubtitles.Get())
 	}
 
-	vm.Cache.Results.BindInMain(func(results []*model.CacheData) {
+	vm.Cache.Results.Bind(func(results []*model.CacheData) {
 		data = results
 		result.Show()
 		result.UnselectAll()
 		result.Refresh()
 	})
-	vbox.Add(result)
 
-	vm.Cache.Mount()
-
-	return vbox
+	return container.NewBorder(vbox, nil, nil, nil, result)
 }

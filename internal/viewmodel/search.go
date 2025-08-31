@@ -108,7 +108,7 @@ func (s *Search) Unmount() {
 	s.SearchResults.UnbindAll()
 }
 
-func (s *Search) Search() bool {
+func (s *Search) SearchAsync() bool {
 	query := s.Query.Get()
 	query = strings.TrimSpace(query)
 
@@ -192,7 +192,7 @@ func (s *Search) Search() bool {
 	// results may be >= 0 but the data may be empty (where seeds = 0)
 	if len(data) == 0 {
 		s.shared.Info("No results found for query")
-		s.SearchResults.Notify(data)
+		s.SearchResults.NotifyAsync(data)
 
 		return false
 	}
@@ -210,7 +210,7 @@ func (s *Search) Search() bool {
 		return cmp.Compare(a.Seeds, b.Seeds)
 	})
 
-	s.SearchResults.Notify(data)
+	s.SearchResults.NotifyAsync(data)
 
 	return true
 }

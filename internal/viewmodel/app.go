@@ -49,8 +49,6 @@ func NewApp(shared *Shared,
 	a.OSUsername = bind.New[string](data.OpenSubtitles.Username)
 	a.OSPassword = bind.New[string](data.OpenSubtitles.Password)
 
-	a.shared.EscapeKey.Notify(nil)
-
 	return a
 }
 
