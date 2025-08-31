@@ -176,7 +176,7 @@ func scrape(handler *scraper.Handler, slug string, values map[string]string) ([]
 		return nil, faults.Errorf("endpoint not found: %s", slug)
 	}
 
-	http.DefaultClient.Timeout = 10 * time.Second
+	http.DefaultClient.Timeout = 15 * time.Second
 	res, err := endpoint.Execute(values)
 	if err != nil {
 		return nil, faults.Errorf("failed to execute endpoint: %w", err)

@@ -164,6 +164,7 @@ func (c Search) transformToMyResult(slug string, r []extractor.Result, qualities
 			Size:     r.Size,
 			Seeds:    seeds,
 			Cached:   files.Exists(c.torrentDir, strings.ToUpper(hash)+".torrent"),
+			Hash:     hash,
 		}
 
 		for i, q := range qualities {

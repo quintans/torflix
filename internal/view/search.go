@@ -18,7 +18,7 @@ func buildSearch(vm *viewmodel.App) fyne.CanvasObject {
 	query := widget.NewEntry()
 	query.SetPlaceHolder("Enter search...")
 
-	vm.Search.Query.Bind(query.SetText)
+	vm.Search.Query.BindPtr(&query.Text)
 	query.OnChanged = func(text string) {
 		vm.Search.Query.Set(text)
 		if text == "" {
@@ -59,7 +59,7 @@ func buildSearch(vm *viewmodel.App) fyne.CanvasObject {
 	})
 
 	subtitles := widget.NewCheck("Download Subtitles", nil)
-	vm.Search.DownloadSubtitles.Bind(subtitles.SetChecked)
+	vm.Search.DownloadSubtitles.BindPtr(&subtitles.Checked)
 	subtitles.OnChanged = vm.Search.DownloadSubtitles.Set
 
 	var data []*viewmodel.SearchData
@@ -96,11 +96,7 @@ func buildSearch(vm *viewmodel.App) fyne.CanvasObject {
 			Quality:  d.QualityName,
 			Hash:     d.Hash,
 		})
-		if vm.Search.Download(d.Magnet) {
-			return
-		}
-		result.Unselect(id)
-		result.Show()
+		go vm.Search.Download(d.Magnet)
 	}
 
 	searchBtn.OnTapped = func() {
@@ -109,18 +105,21 @@ func buildSearch(vm *viewmodel.App) fyne.CanvasObject {
 		result.UnselectAll()
 		result.Refresh()
 
-		if vm.Search.Search() {
-			return
-		}
-		searchBtn.Enable()
+		go func() {
+			if !vm.Search.SearchAsync() {
+				fyne.DoAndWait(func() {
+					searchBtn.Enable()
+				})
+			}
+		}()
 	}
 
 	vm.Search.SearchResults.Bind(func(results []*viewmodel.SearchData) {
-		// I don't understand why it only refreshes the UI with the cache flag in a goroutine
-		go func() {
-			data = results
-			result.Refresh()
-		}()
+		data = results
+		searchBtn.Enable()
+		result.Show()
+		result.UnselectAll()
+		result.Refresh()
 	})
 
 	vm.Cache.CacheCleared.Listen(func(bool) {

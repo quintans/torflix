@@ -36,10 +36,6 @@ func NewDownloadList(shared *Shared, service DownloadService, params app.Downloa
 	})
 	d.FileItems.Notify(fileItems)
 
-	d.shared.EscapeKey.Notify(func() {
-		d.Back()
-	})
-
 	return d
 }
 

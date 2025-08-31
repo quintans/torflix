@@ -3,13 +3,28 @@ package bind
 import (
 	"slices"
 	"sync"
+
+	"fyne.io/fyne/v2"
 )
 
+type Setter[T any] interface {
+	Set(T)
+	SetAsync(T)
+	Common[T]
+}
+
 type Notifier[T any] interface {
-	Listen(func(T)) func()
-	Bind(func(T)) func()
-	UnbindAll()
 	Notify(T)
+	NotifyAsync(T)
+	Common[T]
+}
+
+type Common[T any] interface {
+	Listen(func(T)) func()
+	ListenPtr(*T) func()
+	Bind(func(T)) func()
+	BindPtr(*T) func()
+	UnbindAll()
 	Get() T
 	Reset(T)
 }
@@ -91,10 +106,21 @@ func NewNotifier[T any]() *Bind[T] {
 // Bind binds a handler and calls it immediately with the current value.
 func (b *Bind[T]) Bind(h func(T)) func() {
 	b.mu.RLock()
-	h(b.value) // call on bind
+	v := b.value
 	b.mu.RUnlock()
 
+	h(v) // call immediately with current value
+
 	return b.Listen(h)
+}
+
+// BindPtr creates a listener around a pointer.
+// useful to assign values to a widget without triggering change events.
+// eg: BindPtr(&query.Text)
+func (b *Bind[T]) BindPtr(h *T) func() {
+	return b.Bind(func(v T) {
+		*h = v
+	})
 }
 
 // Listen adds a handler to the list of listeners.
@@ -105,6 +131,15 @@ func (b *Bind[T]) Listen(h func(T)) func() {
 	return func() {
 		b.listeners.Delete(hh)
 	}
+}
+
+// ListenPtr creates a listener around a pointer.
+// useful to assign values to a widget without triggering change events.
+// eg: ListenPtr(&query.Text)
+func (b *Bind[T]) ListenPtr(h *T) func() {
+	return b.Listen(func(v T) {
+		*h = v
+	})
 }
 
 // Set sets the value and notifies all listeners.
@@ -120,6 +155,12 @@ func (b *Bind[T]) Set(value T) {
 	b.Notify(value)
 }
 
+func (b *Bind[T]) SetAsync(value T) {
+	fyne.DoAndWait(func() {
+		b.Set(value)
+	})
+}
+
 // Notify sets the value without and notifies all listeners.
 func (b *Bind[T]) Notify(value T) {
 	b.mu.Lock()
@@ -129,6 +170,12 @@ func (b *Bind[T]) Notify(value T) {
 	b.listeners.Range(func(k, _ any) bool {
 		k.(handler[T]).handle(value)
 		return true
+	})
+}
+
+func (b *Bind[T]) NotifyAsync(value T) {
+	fyne.DoAndWait(func() {
+		b.Notify(value)
 	})
 }
 

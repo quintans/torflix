@@ -148,19 +148,6 @@ func main() {
 	w := a.NewWindow(fmt.Sprintf("TorFlix v%s", gapp.Version))
 	w.Resize(fyne.NewSize(800, 600))
 
-	var escapeHandler func()
-	w.Canvas().SetOnTypedKey(func(k *fyne.KeyEvent) {
-		if k.Name == fyne.KeyEscape && escapeHandler != nil {
-			escapeHandler()
-		}
-	})
-	shared := &viewmodel.Shared{
-		EscapeKey: bind.NewNotifier[func()](),
-	}
-	shared.EscapeKey.Bind(func(fn func()) {
-		escapeHandler = fn
-	})
-
 	db := repository.NewDB(cacheDir)
 	if !db.Exists("search.json") {
 		err := db.SaveSearch(model.NewSearch())
@@ -193,7 +180,6 @@ func main() {
 
 	b := bus.New()
 	bus.Register(b, createDialogListener(w))
-	shared.Publish = b.Publish
 
 	openSubtitlesClientFactory := func(usr, pwd string) gapp.SubtitlesClient {
 		return opensubtitles.New(usr, pwd)
@@ -223,8 +209,11 @@ func main() {
 
 	// Notification container
 	notification := mycontainer.NewNotification()
-	shared.ShowNotification = bind.NewNotifier[gapp.Notify]()
-	shared.ShowNotification.Bind(showNotification(notification))
+	shared := &viewmodel.Shared{
+		Publish:          b.Publish,
+		ShowNotification: bind.NewNotifier[gapp.Notify](),
+	}
+	shared.ShowNotification.Listen(showNotification(notification))
 
 	anchor := mycontainer.NewAnchor()
 	anchor.Add(content, mycontainer.FillConstraint)
@@ -329,15 +318,17 @@ func createDialogListener(w fyne.Window) func(msg gapp.Loading) {
 
 func showNotification(notification *mycontainer.NotificationContainer) func(evt gapp.Notify) {
 	return func(evt gapp.Notify) {
-		switch evt.Type {
-		case gapp.NotifyError:
-			notification.ShowError(evt.Message)
-		case gapp.NotifyWarn:
-			notification.ShowWarning(evt.Message)
-		case gapp.NotifyInfo:
-			notification.ShowInfo(evt.Message)
-		case gapp.NotifySuccess:
-			notification.ShowSuccess(evt.Message)
-		}
+		go fyne.Do(func() {
+			switch evt.Type {
+			case gapp.NotifyError:
+				notification.ShowError(evt.Message)
+			case gapp.NotifyWarn:
+				notification.ShowWarning(evt.Message)
+			case gapp.NotifyInfo:
+				notification.ShowInfo(evt.Message)
+			case gapp.NotifySuccess:
+				notification.ShowSuccess(evt.Message)
+			}
+		})
 	}
 }

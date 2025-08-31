@@ -21,7 +21,7 @@ type Cache struct {
 }
 
 func NewCache(shared *Shared, cacheDir string, cacheService CacheService, downloadService DownloadService) *Cache {
-	return &Cache{
+	c := &Cache{
 		shared:          shared,
 		cacheService:    cacheService,
 		downloadService: downloadService,
@@ -29,9 +29,13 @@ func NewCache(shared *Shared, cacheDir string, cacheService CacheService, downlo
 		CacheCleared:    bind.NewNotifier[bool](),
 		Results:         bind.NewNotifier[[]*model.CacheData](),
 	}
+
+	c.mount()
+
+	return c
 }
 
-func (c *Cache) Mount() {
+func (c *Cache) mount() {
 	data, err := c.cacheService.LoadAllCached()
 	if err != nil {
 		c.shared.Error(err, "Failed to load cached data")

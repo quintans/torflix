@@ -24,7 +24,6 @@ func Download(vm *viewmodel.Download) (fyne.CanvasObject, func(bool)) {
 
 	back := widget.NewButton("BACK", func() {
 		vm.Back()
-
 	})
 
 	play := widget.NewButton("PLAY", nil)
@@ -100,9 +99,11 @@ func Download(vm *viewmodel.Download) (fyne.CanvasObject, func(bool)) {
 		tracker.SetPieces(stats.Pieces)
 	})
 
-	if vm.Serve() {
-		vm.Play()
-	}
+	go func() {
+		if vm.ServeAsync() {
+			fyne.DoAndWait(vm.Play)
+		}
+	}()
 
 	content := container.NewVBox(
 		container.New(layout.NewFormLayout(), widgets...),

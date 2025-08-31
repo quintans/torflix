@@ -2,6 +2,8 @@ package bus
 
 import (
 	"sync"
+
+	"fyne.io/fyne/v2"
 )
 
 type Handler[T Message] func(T)
@@ -63,6 +65,8 @@ func (b *Bus) Publish(m Message) {
 	b.mu.Unlock()
 
 	for _, handler := range handlers {
-		handler(m)
+		go fyne.DoAndWait(func() {
+			handler(m)
+		})
 	}
 }

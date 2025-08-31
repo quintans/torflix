@@ -17,8 +17,8 @@ type App struct {
 	downloadService DownloadService
 	appService      AppService
 	SelectedTab     int
-	OSUsername      *bind.Bind[string]
-	OSPassword      *bind.Bind[string]
+	OSUsername      bind.Setter[string]
+	OSPassword      bind.Setter[string]
 	Cache           *Cache
 	Search          *Search
 }
@@ -48,8 +48,6 @@ func NewApp(shared *Shared,
 
 	a.OSUsername = bind.New[string](data.OpenSubtitles.Username)
 	a.OSPassword = bind.New[string](data.OpenSubtitles.Password)
-
-	a.shared.EscapeKey.Notify(nil)
 
 	return a
 }
