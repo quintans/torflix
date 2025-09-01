@@ -84,7 +84,7 @@ func (d *Download) ServeAsync() bool {
 			d.shared.Publish(app.Loading{}) // hide spinner
 		}()
 
-		subtitlesDir, downloaded, err := d.service.DownloadSubtitles(d.params.FileToPlay, d.params.OriginalQuery)
+		subtitlesDir, downloaded, err := d.service.DownloadSubtitles(d.params.FileToPlay, d.params.ResourceName)
 		if err != nil {
 			d.shared.Error(err, "Failed to download subtitles")
 			return false
@@ -97,7 +97,7 @@ func (d *Download) ServeAsync() bool {
 		d.subtitlesDir = subtitlesDir
 	}
 
-	queryAndSeason, err := d.service.ServeFile(d.ctx, d.shared.Error, d.params.FileToPlay, d.params.OriginalQuery, func(stats app.Stats) {
+	queryAndSeason, err := d.service.ServeFile(d.ctx, d.shared.Error, d.params.FileToPlay, d.params.ResourceName, func(stats app.Stats) {
 		d.Status.NotifyAsync(stats)
 	})
 	if err != nil {

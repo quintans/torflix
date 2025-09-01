@@ -103,7 +103,7 @@ func NewTorrentClient(cfg ClientConfig, torrentDir, mediaDir string, resource st
 	// Add torrent.
 
 	// Add as magnet url.
-	if strings.HasPrefix(torrentPath, "magnet:") {
+	if isMagnet(torrentPath) {
 		if t, err = c.AddMagnet(torrentPath); err != nil {
 			return client, faults.Errorf("adding torrent: %w", err)
 		}
@@ -127,7 +127,7 @@ func NewTorrentClient(cfg ClientConfig, torrentDir, mediaDir string, resource st
 
 	<-t.GotInfo()
 
-	if torrentFile == "" {
+	if isMagnet(torrentFile) {
 		err = saveTorrent(torrentDir, t)
 		if err != nil {
 			return nil, faults.Errorf("saving torrent: %w", err)
@@ -138,16 +138,18 @@ func NewTorrentClient(cfg ClientConfig, torrentDir, mediaDir string, resource st
 }
 
 func checkIfTorrentExists(torrentFileDir, torrentPath string) (string, error) {
-	m, err := magnet.Parse(torrentPath)
-	if err != nil {
-		return "", faults.Errorf("parsing magnet: %w", err)
-	}
+	if isMagnet(torrentPath) {
+		m, err := magnet.Parse(torrentPath)
+		if err != nil {
+			return "", faults.Errorf("parsing magnet: %w", err)
+		}
 
-	if m.InfoHash != "" {
-		filename := fmt.Sprintf("%s.torrent", strings.ToUpper(m.InfoHash))
-		file := filepath.Join(torrentFileDir, filename)
-		if files.Exists(file) {
-			return file, nil
+		if m.InfoHash != "" {
+			filename := fmt.Sprintf("%s.torrent", strings.ToUpper(m.InfoHash))
+			file := filepath.Join(torrentFileDir, filename)
+			if files.Exists(file) {
+				return file, nil
+			}
 		}
 	}
 
@@ -177,6 +179,9 @@ func saveTorrent(torrentFileDir string, t *torrent.Torrent) error {
 	}
 
 	return nil
+}
+func isMagnet(s string) bool {
+	return strings.HasPrefix(s, "magnet:")
 }
 
 func (c *TorrentClient) Play(file *torrent.File) {

@@ -23,7 +23,6 @@ type Common[T any] interface {
 	Listen(func(T)) func()
 	ListenPtr(*T) func()
 	Bind(func(T)) func()
-	BindPtr(*T) func()
 	UnbindAll()
 	Get() T
 	Reset(T)
@@ -112,15 +111,6 @@ func (b *Bind[T]) Bind(h func(T)) func() {
 	h(v) // call immediately with current value
 
 	return b.Listen(h)
-}
-
-// BindPtr creates a listener around a pointer.
-// useful to assign values to a widget without triggering change events.
-// eg: BindPtr(&query.Text)
-func (b *Bind[T]) BindPtr(h *T) func() {
-	return b.Bind(func(v T) {
-		*h = v
-	})
 }
 
 // Listen adds a handler to the list of listeners.

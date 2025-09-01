@@ -58,6 +58,7 @@ func (a *App) Unmount() {
 
 	a.Cache.Unmount()
 	a.Search.Unmount()
+	a.Search.MediaName.UnbindAll()
 }
 
 func (a *App) SetOpenSubtitles(username, password string) {
