@@ -15,10 +15,15 @@ func buildSearch(vm *viewmodel.App) fyne.CanvasObject {
 	searchBtn := widget.NewButton("SEARCH", nil)
 	searchBtn.Importance = widget.HighImportance
 
+	mediaName := widget.NewEntry()
+	mediaName.SetPlaceHolder("Enter movie/tv show (with season and episode) name...")
+	mediaName.Hide()
+	mediaName.SetText(vm.Search.MediaName.Get())
+	mediaName.OnChanged = vm.Search.MediaName.Set
+
 	query := widget.NewEntry()
 	query.SetPlaceHolder("Enter search...")
 
-	vm.Search.Query.BindPtr(&query.Text)
 	query.OnChanged = func(text string) {
 		vm.Search.Query.Set(text)
 		if text == "" {
@@ -26,7 +31,16 @@ func buildSearch(vm *viewmodel.App) fyne.CanvasObject {
 		} else {
 			searchBtn.Enable()
 		}
+
+		if viewmodel.IsTorrentResource(text) {
+			searchBtn.SetText("GO")
+			mediaName.Show()
+		} else {
+			searchBtn.SetText("SEARCH")
+			mediaName.Hide()
+		}
 	}
+	query.SetText(vm.Search.Query.Get())
 	query.OnSubmitted = func(text string) {
 		if query.Text == "" {
 			return
@@ -59,7 +73,7 @@ func buildSearch(vm *viewmodel.App) fyne.CanvasObject {
 	})
 
 	subtitles := widget.NewCheck("Download Subtitles", nil)
-	vm.Search.DownloadSubtitles.BindPtr(&subtitles.Checked)
+	subtitles.SetChecked(vm.Search.DownloadSubtitles.Get())
 	subtitles.OnChanged = vm.Search.DownloadSubtitles.Set
 
 	var data []*viewmodel.SearchData
@@ -129,7 +143,7 @@ func buildSearch(vm *viewmodel.App) fyne.CanvasObject {
 		result.Refresh()
 	})
 
-	options := container.NewVBox(pillContainer, subtitles)
+	options := container.NewVBox(mediaName, pillContainer, subtitles)
 
 	return container.NewBorder(
 		container.NewBorder(nil, options, nil, searchBtn, query),

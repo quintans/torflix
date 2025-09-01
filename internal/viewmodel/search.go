@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
-	"regexp"
 	gslices "slices"
 	"sort"
 	"strings"
@@ -32,6 +31,7 @@ type Search struct {
 	OriginalQuery     string
 	Providers         []string
 	Query             bind.Setter[string]
+	MediaName         bind.Setter[string]
 	SelectedProviders bind.Setter[map[string]bool]
 	DownloadSubtitles bind.Setter[bool]
 	SearchResults     bind.Notifier[[]*SearchData]
@@ -74,6 +74,7 @@ func (s *Search) mount() {
 		return
 	}
 	s.Query = bind.New[string](data.Model.Query())
+	s.MediaName = bind.New[string](data.Model.MediaName())
 
 	if len(data.Providers) == 0 {
 		s.shared.Error(nil, "No providers available for search")
@@ -103,18 +104,27 @@ func (s *Search) mount() {
 
 func (s *Search) Unmount() {
 	s.Query.UnbindAll()
+	s.MediaName.UnbindAll()
 	s.SelectedProviders.UnbindAll()
 	s.DownloadSubtitles.UnbindAll()
 	s.SearchResults.UnbindAll()
 }
 
+func IsTorrentResource(link string) bool {
+	return strings.HasPrefix(link, "magnet:") ||
+		strings.HasPrefix(link, "http:") ||
+		strings.HasPrefix(link, "https:") ||
+		strings.HasSuffix(link, ".torrent")
+}
+
 func (s *Search) SearchAsync() bool {
-	query := s.Query.Get()
-	query = strings.TrimSpace(query)
+	query := strings.TrimSpace(s.Query.Get())
+	mediaName := strings.TrimSpace(s.MediaName.Get())
 
 	model := model.NewSearch()
 	model.SetSubtitles(s.DownloadSubtitles.Get())
 	model.SetQuery(query)
+	model.SetMediaName(mediaName)
 
 	err := model.SetQuery(query)
 	if err != nil {
@@ -123,9 +133,9 @@ func (s *Search) SearchAsync() bool {
 	}
 
 	selectedProviders := s.SelectedProviders.Get()
-	isMagnet := strings.HasPrefix(query, "magnet:")
+	isTorrent := IsTorrentResource(query)
 
-	if !isMagnet && len(selectedProviders) == 0 {
+	if !isTorrent && len(selectedProviders) == 0 {
 		s.shared.Warn("Please select at least one provider")
 		return false
 	}
@@ -138,20 +148,15 @@ func (s *Search) SearchAsync() bool {
 		return false
 	}
 
-	if strings.HasPrefix(query, "magnet:") {
-		mag, err := magnet.Parse(query)
-		if err != nil {
-			s.shared.Error(err, "Failed to parse magnet link")
+	if isTorrent {
+		mn := s.MediaName.Get()
+		if mn == "" {
+			s.shared.Warn("Media name is required when providing a link")
 			return false
 		}
-		dn := mag.DisplayName
-		if dn == "" {
-			dn = fmt.Sprintf("Torrent-%s", mag.Hash)
-		} else {
-			dn = cleanTorrentName(dn)
-		}
-		s.OriginalQuery = dn
-		return s.Download(query)
+
+		s.OriginalQuery = mn
+		return download(s.shared, s.downloadService, s.OriginalQuery, query, s.DownloadSubtitles.Get())
 	}
 
 	d := timer.New(time.Second, func() {
@@ -365,44 +370,4 @@ func mergeMagnetLinks(links []string) (string, string, error) {
 	}
 
 	return fmt.Sprintf("magnet:?%s", mergedParams.Encode()), smallestDN, nil
-}
-
-func cleanTorrentName(torrentName string) string {
-	// Pattern to identify and retain special markers (Season/Episode info)
-	seasonEpisodePattern := regexp.MustCompile(`(?i)\b(S\d{2}(E\d{2})?|Season \d+)\b`)
-
-	// Find the first occurrence of the pattern
-	loc := seasonEpisodePattern.FindStringIndex(torrentName)
-	if loc != nil {
-		// Keep everything up to and including the matched pattern
-		torrentName = torrentName[:loc[1]]
-	}
-
-	// Remove common metadata from the trimmed name
-	patterns := []string{
-		`(?i)\b(720p|1080p|2160p|4k|8k)\b`,           // Resolutions
-		`(?i)\b(x264|x265|h264|h265)\b`,              // Codecs
-		`(?i)\b(WEBRip|BRRip|BluRay|HDTV|WEB-DL)\b`,  // Sources
-		`(?i)\b(DTS|DD5\.1|AAC|Atmos|TrueHD|MP3)\b`,  // Audio formats
-		`$begin:math:display$\\w+$end:math:display$`, // Text in square brackets
-		`$begin:math:text$[^)]+$end:math:text$`,      // Text in parentheses
-		`-.*$`,                                       // Trailing release group name
-	}
-
-	for _, pattern := range patterns {
-		re := regexp.MustCompile(pattern)
-		loc := re.FindStringIndex(torrentName)
-		if loc != nil {
-			torrentName = torrentName[:loc[0]]
-		}
-	}
-
-	// Replace dots and underscores with spaces
-	torrentName = strings.ReplaceAll(torrentName, ".", " ")
-	torrentName = strings.ReplaceAll(torrentName, "_", " ")
-
-	// Trim extra spaces
-	torrentName = strings.TrimSpace(torrentName)
-
-	return torrentName
 }

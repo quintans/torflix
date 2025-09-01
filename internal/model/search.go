@@ -6,6 +6,7 @@ type Search struct {
 	query             string
 	selectedProviders map[string]bool
 	subtitles         bool
+	mediaName         string
 }
 
 func NewSearch() *Search {
@@ -16,8 +17,9 @@ func NewSearch() *Search {
 	}
 }
 
-func (m *Search) Hydrate(query string, selectedProviders map[string]bool, subtitles bool) {
+func (m *Search) Hydrate(query string, mediaName string, selectedProviders map[string]bool, subtitles bool) {
 	m.query = query
+	m.mediaName = mediaName
 	m.selectedProviders = selectedProviders
 	m.subtitles = subtitles
 }
@@ -49,4 +51,12 @@ func (m *Search) Subtitles() bool {
 
 func (m *Search) SetSubtitles(subtitles bool) {
 	m.subtitles = subtitles
+}
+
+func (m *Search) MediaName() string {
+	return m.mediaName
+}
+
+func (m *Search) SetMediaName(mediaName string) {
+	m.mediaName = mediaName
 }

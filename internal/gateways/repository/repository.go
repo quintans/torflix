@@ -27,6 +27,7 @@ func NewDB(cacheDir string) *DB {
 
 type Search struct {
 	LastQuery         string   `json:"lastQuery"`
+	MediaName         string   `json:"mediaName"`
 	SelectedProviders []string `json:"searchWith"`
 	Subtitles         bool     `json:"subtitles"`
 }
@@ -41,6 +42,7 @@ func (d *DB) SaveSearch(search *model.Search) error {
 
 	err := d.write("search.json", Search{
 		LastQuery:         search.Query(),
+		MediaName:         search.MediaName(),
 		SelectedProviders: selected,
 		Subtitles:         search.Subtitles(),
 	})
@@ -66,7 +68,7 @@ func (d *DB) LoadSearch() (*model.Search, error) {
 		}
 
 		search := model.NewSearch()
-		search.Hydrate(s.LastQuery, selectedProviders, s.Subtitles)
+		search.Hydrate(s.LastQuery, s.MediaName, selectedProviders, s.Subtitles)
 
 		d.search = search
 	}

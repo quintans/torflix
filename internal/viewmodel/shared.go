@@ -18,18 +18,19 @@ type Shared struct {
 }
 
 func (s *Shared) Error(err error, msg string, args ...any) {
-	if err == nil {
-		return
-	}
-
 	mm := msg
 	if len(args) > 0 {
 		m := values.ToMap(args)
 		mm = fmt.Sprintf("%s %s", msg, values.ToStr(m))
 	}
 
-	s.ShowNotification.Notify(app.NewNotifyError("%s: %s", mm, err))
-	slog.Error(msg, append(args, "error", err)...)
+	if err != nil {
+		s.ShowNotification.Notify(app.NewNotifyError("%s: %s", mm, err))
+		slog.Error(msg, append(args, "error", err)...)
+		return
+	}
+
+	s.ShowNotification.Notify(app.NewNotifyError(mm))
 }
 
 func (s *Shared) Warn(msg string, args ...any) {

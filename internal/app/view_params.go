@@ -13,6 +13,6 @@ type DownloadListParams struct {
 type DownloadParams struct {
 	FileToPlay          *torrent.File
 	PauseTorrentOnClose bool
-	OriginalQuery       string
+	ResourceName        string
 	Subtitles           bool
 }

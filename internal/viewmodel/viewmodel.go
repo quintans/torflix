@@ -10,7 +10,7 @@ import (
 	"github.com/quintans/torflix/internal/lib/timer"
 )
 
-func download(shared *Shared, downloadService DownloadService, originalQuery, magnetLink string, subtitles bool) bool {
+func download(shared *Shared, downloadService DownloadService, resourceName, resource string, subtitles bool) bool {
 	t := timer.New(time.Second, func() {
 		shared.Publish(app.Loading{
 			Text: "Downloading torrent metadata",
@@ -23,7 +23,7 @@ func download(shared *Shared, downloadService DownloadService, originalQuery, ma
 		shared.Publish(app.Loading{}) // hide spinner
 	}()
 
-	files, err := downloadService.DownloadTorrent(magnetLink)
+	files, err := downloadService.DownloadTorrent(resource)
 	if err != nil {
 		shared.Error(err, "Failed to download torrent metadata")
 		return false
@@ -38,7 +38,7 @@ func download(shared *Shared, downloadService DownloadService, originalQuery, ma
 		shared.Navigate.To(app.DownloadParams{
 			FileToPlay:          files[0],
 			PauseTorrentOnClose: false,
-			OriginalQuery:       originalQuery,
+			ResourceName:        resourceName,
 			Subtitles:           subtitles,
 		})
 		return true
@@ -50,7 +50,7 @@ func download(shared *Shared, downloadService DownloadService, originalQuery, ma
 
 	shared.Navigate.To(app.DownloadListParams{
 		Files:         files,
-		OriginalQuery: originalQuery,
+		OriginalQuery: resourceName,
 		Subtitles:     subtitles,
 	})
 	return true
