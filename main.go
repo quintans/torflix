@@ -144,6 +144,12 @@ func main() {
 		panic(err)
 	}
 
+	defSubTitlesDir := filepath.Join(subtitlesDir, "default")
+	err = os.MkdirAll(defSubTitlesDir, os.ModePerm)
+	if err != nil {
+		panic(err)
+	}
+
 	a := app.New()
 	w := a.NewWindow(fmt.Sprintf("TorFlix v%s", gapp.Version))
 	w.Resize(fyne.NewSize(800, 600))
@@ -193,7 +199,7 @@ func main() {
 	}
 	downloadSvc := services.NewDownload(
 		db,
-		player.Player{},
+		player.Player{DefaultSubtitlesDir: defSubTitlesDir},
 		torrentClientFactory(db, mediaDir, torrentsDir),
 		openSubtitlesClientFactory,
 		torrentsDir,
@@ -272,7 +278,7 @@ func torrentClientFactory(db *repository.DB, mediaDir, torrentFileDir string) fu
 				TCP:                  settings.TCP(),
 				DownloadAheadPercent: 1,
 				FirstDownloadPercent: 0.25,
-				ValidMediaExtensions: services.MediaExtensions,
+				ValidMediaExtensions: viewmodel.MediaExtensions,
 				UploadRate:           settings.UploadRate(),
 			},
 			torrentFileDir,

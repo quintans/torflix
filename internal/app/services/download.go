@@ -81,27 +81,18 @@ func (c *Download) DownloadTorrent(link string) ([]*torrent.File, error) {
 	return c.client.GetFilteredFiles(), nil
 }
 
-func (c *Download) DownloadSubtitles(file *torrent.File, originalQuery string) (string, int, error) {
-	qc := c.getQueryComponents(file, originalQuery)
-	subsDir, downloaded, err := c.downloadSubtitles(file, qc)
-
-	return subsDir, downloaded, faults.Wrapf(err, "downloading subtitles")
-}
-
 func (c *Download) ServeFile(
 	ctx context.Context,
 	asyncError app.AsyncError,
 	file *torrent.File,
-	originalQuery string,
+	mediaName string,
 	setStats func(app.Stats),
-) (string, error) {
-	qc := c.getQueryComponents(file, originalQuery)
-
+) error {
 	c.client.Play(file)
 
 	settings, err := c.repo.LoadSettings()
 	if err != nil {
-		return "", faults.Errorf("loading settings: %w", err)
+		return faults.Errorf("loading settings: %w", err)
 	}
 
 	go func() {
@@ -109,7 +100,7 @@ func (c *Download) ServeFile(
 		fn := func() {
 			stats := c.client.Stats()
 			if stats.Pieces == nil || stats.ReadyForPlayback {
-				stats.Stream = fmt.Sprintf(localhost, settings.Port(), qc.queryAndSeason)
+				stats.Stream = fmt.Sprintf(localhost, settings.Port(), mediaName)
 			} else {
 				stats.Stream = "Not ready for playback"
 			}
@@ -132,7 +123,7 @@ func (c *Download) ServeFile(
 	}()
 
 	mux := http.NewServeMux()
-	mux.HandleFunc("/"+qc.queryAndSeason, c.client.GetFile(qc.queryAndSeason))
+	mux.HandleFunc("/"+mediaName, c.client.GetFile(mediaName))
 
 	server := &http.Server{
 		Addr:    ":" + strconv.Itoa(settings.Port()),
@@ -154,7 +145,7 @@ func (c *Download) ServeFile(
 		}
 	}()
 
-	return qc.queryAndSeason, nil
+	return nil
 }
 
 func (c *Download) Play(ctx context.Context, asyncError app.AsyncError, servingFile, subtitlesDir string, onClose func()) error {
@@ -191,35 +182,13 @@ func (c *Download) Play(ctx context.Context, asyncError app.AsyncError, servingF
 	return nil
 }
 
-type queryComponents struct {
-	cleanedQuery   string
-	queryAndSeason string
-	season         int
-	episode        int
-}
-
-func (c *Download) getQueryComponents(file *torrent.File, originalQuery string) queryComponents {
-	season, episode := extractSeasonEpisode(file.DisplayPath())
-	cleanedQuery := extractTitle(originalQuery)
-
-	queryAndSeason := strings.ReplaceAll(cleanedQuery, " ", "_")
-	if season > 0 {
-		if episode == 0 {
-			queryAndSeason = queryAndSeason + fmt.Sprintf("_%02d", season)
-		} else {
-			queryAndSeason = queryAndSeason + fmt.Sprintf("_s%02de%02d", season, episode)
-		}
-	}
-
-	return queryComponents{
-		cleanedQuery:   cleanedQuery,
-		queryAndSeason: queryAndSeason,
-		season:         season,
-		episode:        episode,
-	}
-}
-
-func (c *Download) downloadSubtitles(file *torrent.File, qc queryComponents) (string, int, error) {
+func (c *Download) DownloadSubtitles(
+	file *torrent.File,
+	mediaName string,
+	cleanedQuery string,
+	season int,
+	episode int,
+) (string, int, error) {
 	settings, err := c.repo.LoadSettings()
 	if err != nil {
 		return "", 0, faults.Errorf("loading settings: %w", err)
@@ -234,7 +203,7 @@ func (c *Download) downloadSubtitles(file *torrent.File, qc queryComponents) (st
 	}
 	subtitlesClient := c.subtitlesClientFactory(settings.OpenSubtitles.Username, secret.Password)
 
-	subsDir := filepath.Join(c.subtitlesRootDir, qc.queryAndSeason)
+	subsDir := filepath.Join(c.subtitlesRootDir, mediaName)
 	// if subtitles already exist we will use it
 	if _, err := os.Stat(subsDir); err == nil {
 		return subsDir, -1, nil
@@ -246,7 +215,7 @@ func (c *Download) downloadSubtitles(file *torrent.File, qc queryComponents) (st
 	}
 
 	languages := settings.Languages()
-	subtitles, err := subtitlesClient.Search(qc.cleanedQuery, qc.season, qc.episode, languages)
+	subtitles, err := subtitlesClient.Search(cleanedQuery, season, episode, languages)
 	if err != nil {
 		return "", 0, faults.Errorf("searching subtitles: %w", err)
 	}
@@ -275,7 +244,7 @@ func (c *Download) downloadSubtitles(file *torrent.File, qc queryComponents) (st
 		)
 	})
 
-	qry := strings.ToLower(qc.cleanedQuery)
+	qry := strings.ToLower(cleanedQuery)
 	tokens := strings.Split(qry, " ")
 
 	downloaded := 0
@@ -357,96 +326,4 @@ func saveSubtitleFile(downloadLink, fileName string) error {
 	}
 
 	return nil
-}
-
-var MediaExtensions = []string{".mp4", ".mkv", ".avi", ".mov", ".flv", ".wmv", ".webm"}
-
-// Define patterns for TV show (season and episode)
-var tvShowPatterns = []string{
-	`(?i)(S(\d{1,2})E(\d{1,2}))`,        // Pattern: S01E01
-	`(?i)((\d{1,2})x(\d{1,2}))`,         // Pattern: 1x01
-	`(?i)(S(\d{1,2}))`,                  // Pattern: S01
-	`(?i)(Season (\d{1,2}))`,            // Pattern: Season 01
-	`(?i)(Season-(\d{1,2}))`,            // Pattern: Season-01
-	`(?i)([\s\-]?\b(\d{1,2})\b[\s\-]?)`, // Pattern: 01 may or may not have a space or a dash at the beginning
-}
-
-// cleanTorrentFilename parses a torrent filename and determines if it's a movie or TV show.
-// It returns the cleaned name, type (movie/TV show), and season/episode as integers (if applicable).
-func extractSeasonEpisode(name string) (int, int) {
-	name = preClean(name)
-
-	var season, episode int
-
-	for _, pattern := range tvShowPatterns {
-		re := regexp.MustCompile(pattern)
-		matches := re.FindStringSubmatch(name)
-		if matches != nil {
-			season = parseInt(matches[2]) // Extract season as an integer
-			if len(matches) > 3 {
-				episode = parseInt(matches[3]) // Extract episode as an integer
-			}
-			break
-		}
-	}
-
-	return season, episode
-}
-
-func extractTitle(name string) string {
-	name = preClean(name)
-
-	for _, pattern := range tvShowPatterns {
-		re := regexp.MustCompile(pattern)
-		matches := re.FindStringSubmatch(name)
-		if matches != nil {
-			loc := re.FindStringIndex(name)
-			if loc != nil {
-				if loc[0] == 0 {
-					name = name[loc[1]:] // remove the pattern match
-				} else {
-					name = name[:loc[0]] // inclusive truncate on pattern math
-				}
-			}
-			break
-		}
-	}
-
-	return strings.TrimSpace(name)
-}
-
-func preClean(name string) string {
-	// Remove file extension
-	for _, ext := range MediaExtensions {
-		name = strings.TrimSuffix(name, ext)
-	}
-
-	patternsToRemove := []string{
-		`(?i)(720p|1080p|2160p|4k)`,       // Resolutions
-		`(?i)(x264|x265|h264|h265|H.264)`, // Codecs
-	}
-
-	for _, pattern := range patternsToRemove {
-		re := regexp.MustCompile(pattern)
-		loc := re.FindStringIndex(name)
-		if loc != nil {
-			name = name[:loc[0]] // inclusive truncate on pattern math
-		}
-	}
-
-	// Replace common separators with spaces
-	name = strings.ReplaceAll(name, ".", " ")
-	name = strings.ReplaceAll(name, "_", " ")
-
-	return name
-}
-
-// parseInt is a utility function to safely parse an integer from a string
-func parseInt(input string) int {
-	var result int
-	_, err := fmt.Sscanf(input, "%d", &result)
-	if err != nil {
-		slog.Error("Failed to parse integer", "error", err)
-	}
-	return result
 }

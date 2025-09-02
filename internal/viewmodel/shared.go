@@ -8,6 +8,7 @@ import (
 	"github.com/quintans/torflix/internal/lib/bind"
 	"github.com/quintans/torflix/internal/lib/bus"
 	"github.com/quintans/torflix/internal/lib/navigation"
+	"github.com/quintans/torflix/internal/lib/text"
 	"github.com/quintans/torflix/internal/lib/values"
 )
 
@@ -34,13 +35,13 @@ func (s *Shared) Error(err error, msg string, args ...any) {
 }
 
 func (s *Shared) Warn(msg string, args ...any) {
-	s.ShowNotification.Notify(app.NewNotifyWarn(fmt.Sprintf(msg, args...)))
+	s.ShowNotification.Notify(app.NewNotifyWarn(text.Fmt(msg, args...)))
 }
 
 func (s *Shared) Info(msg string, args ...any) {
-	s.ShowNotification.Notify(app.NewNotifyInfo(fmt.Sprintf(msg, args...)))
+	s.ShowNotification.Notify(app.NewNotifyInfo(text.Fmt(msg, args...)))
 }
 
 func (s *Shared) Success(msg string, args ...any) {
-	s.ShowNotification.Notify(app.NewNotifySuccess(fmt.Sprintf(msg, args...)))
+	s.ShowNotification.Notify(app.NewNotifySuccess(text.Fmt(msg, args...)))
 }

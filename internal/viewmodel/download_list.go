@@ -53,7 +53,7 @@ func (d *DownloadList) Select(item *FileItem) {
 	d.shared.Navigate.To(app.DownloadParams{
 		FileToPlay:          item.File,
 		PauseTorrentOnClose: true,
-		ResourceName:        d.originalQuery,
+		OriginalQuery:       d.originalQuery,
 		Subtitles:           d.params.Subtitles,
 	})
 }

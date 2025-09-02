@@ -97,6 +97,11 @@ func (a *Cache) ClearCache() error {
 	if err != nil {
 		return faults.Errorf("Failed to clear subtitles cache: %w", err)
 	}
+	defSubTitlesDir := filepath.Join(a.subtitlesRootDir, "default")
+	err = os.MkdirAll(defSubTitlesDir, os.ModePerm)
+	if err != nil {
+		return faults.Errorf("Failed to recreate default subtitles directory: %w", err)
+	}
 
 	return nil
 }

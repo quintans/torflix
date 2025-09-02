@@ -2,20 +2,28 @@ package player
 
 import (
 	"context"
+	"os"
 	"os/exec"
 
 	"github.com/quintans/faults"
 	"github.com/quintans/torflix/internal/model"
 )
 
-type Player struct{}
+type Player struct {
+	DefaultSubtitlesDir string
+}
 
 func (p Player) Open(ctx context.Context, player model.Player, url string, subtitlesDir string) error {
 	if len(player.Args) == 0 {
 		return faults.New("player is undefined")
 	}
 
-	return open(ctx, player, url, subtitlesDir)
+	subDir := p.DefaultSubtitlesDir
+	if subtitlesDir != "" {
+		subDir = subDir + string(os.PathListSeparator) + subtitlesDir
+	}
+
+	return open(ctx, player, url, subDir)
 }
 
 // GenericPlayer represents most players. The stream URL will be appended to the arguments.

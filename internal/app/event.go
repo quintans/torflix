@@ -1,6 +1,6 @@
 package app
 
-import "fmt"
+import "github.com/quintans/torflix/internal/lib/text"
 
 type Loading struct {
 	// If set, it will update the loading text.
@@ -31,28 +31,28 @@ type Notify struct {
 func NewNotifyInfo(msg string, args ...any) Notify {
 	return Notify{
 		Type:    NotifyInfo,
-		Message: fmt.Sprintf(msg, args...),
+		Message: text.Fmt(msg, args...),
 	}
 }
 
 func NewNotifySuccess(msg string, args ...any) Notify {
 	return Notify{
 		Type:    NotifySuccess,
-		Message: fmt.Sprintf(msg, args...),
+		Message: text.Fmt(msg, args...),
 	}
 }
 
 func NewNotifyWarn(msg string, args ...any) Notify {
 	return Notify{
 		Type:    NotifyWarn,
-		Message: fmt.Sprintf(msg, args...),
+		Message: text.Fmt(msg, args...),
 	}
 }
 
 func NewNotifyError(msg string, args ...any) Notify {
 	return Notify{
 		Type:    NotifyError,
-		Message: fmt.Sprintf(msg, args...),
+		Message: text.Fmt(msg, args...),
 	}
 }
 
