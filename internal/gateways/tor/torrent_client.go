@@ -94,7 +94,7 @@ func NewTorrentClient(cfg ClientConfig, torrentDir, mediaDir string, resource st
 	// Create client.
 	c, err = torrent.NewClient(torrentConfig)
 	if err != nil {
-		return client, faults.Errorf("creating lib torrent client: %w", err)
+		return nil, faults.Errorf("creating lib torrent client: %w", err)
 	}
 
 	client.Client = c
@@ -105,7 +105,7 @@ func NewTorrentClient(cfg ClientConfig, torrentDir, mediaDir string, resource st
 	// Add as magnet url.
 	if isMagnet(torrentPath) {
 		if t, err = c.AddMagnet(torrentPath); err != nil {
-			return client, faults.Errorf("adding torrent: %w", err)
+			return nil, faults.Errorf("adding torrent magnet '%s': %w", torrentPath, err)
 		}
 	} else {
 		// Otherwise add as a torrent file.
@@ -118,7 +118,7 @@ func NewTorrentClient(cfg ClientConfig, torrentDir, mediaDir string, resource st
 		}
 
 		if t, err = c.AddTorrentFromFile(torrentPath); err != nil {
-			return client, faults.Errorf("adding torrent '%s' to the client: %w", torrentPath, err)
+			return nil, faults.Errorf("adding torrent '%s' to the client: %w", torrentPath, err)
 		}
 	}
 
@@ -335,10 +335,11 @@ func (c TorrentClient) GetFile(filename string) func(w http.ResponseWriter, r *h
 	}
 }
 
-func downloadFile(torrentDir, URL string) (fileName string, err error) {
+func downloadFile(torrentDir, URL string) (string, error) {
 	var file *os.File
+	var err error
 	if file, err = os.CreateTemp(torrentDir, "download"); err != nil {
-		return
+		return "", faults.Errorf("creating temp file: %w", err)
 	}
 
 	defer func() {
@@ -351,7 +352,7 @@ func downloadFile(torrentDir, URL string) (fileName string, err error) {
 	// We are downloading the url the user passed to us, we trust it is a torrent file.
 	response, err := http.Get(URL)
 	if err != nil {
-		return
+		return "", faults.Errorf("downloading torrent link '%s': %w", URL, err)
 	}
 
 	defer func() {
@@ -361,6 +362,9 @@ func downloadFile(torrentDir, URL string) (fileName string, err error) {
 	}()
 
 	_, err = io.Copy(file, response.Body)
+	if err != nil {
+		return "", faults.Errorf("copying response body: %w", err)
+	}
 
-	return file.Name(), err
+	return file.Name(), nil
 }

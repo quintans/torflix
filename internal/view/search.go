@@ -98,6 +98,7 @@ func buildSearch(vm *viewmodel.App) fyne.CanvasObject {
 		},
 	)
 	result.OnSelected = func(id widget.ListItemID) {
+		result.UnselectAll()
 		result.Hide()
 		d := data[id]
 		d.Cached = true
@@ -110,14 +111,17 @@ func buildSearch(vm *viewmodel.App) fyne.CanvasObject {
 			Quality:  d.QualityName,
 			Hash:     d.Hash,
 		})
-		go vm.Search.Download(d.Magnet)
+		go func() {
+			if !vm.Search.Download(d.Magnet) {
+				fyne.DoAndWait(result.Show)
+			}
+		}()
 	}
 
 	searchBtn.OnTapped = func() {
 		searchBtn.Disable()
 
 		result.UnselectAll()
-		result.Refresh()
 
 		go func() {
 			if !vm.Search.SearchAsync() {
