@@ -72,6 +72,10 @@ func (c *Download) Close() {
 }
 
 func (c *Download) DownloadTorrent(link string) ([]*torrent.File, error) {
+	if c.client != nil {
+		c.Close()
+	}
+
 	var err error
 	c.client, err = c.torCliFact(link)
 	if err != nil {

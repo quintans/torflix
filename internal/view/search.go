@@ -125,9 +125,7 @@ func buildSearch(vm *viewmodel.App) fyne.CanvasObject {
 
 		go func() {
 			if !vm.Search.SearchAsync() {
-				fyne.DoAndWait(func() {
-					searchBtn.Enable()
-				})
+				fyne.DoAndWait(searchBtn.Enable)
 			}
 		}()
 	}

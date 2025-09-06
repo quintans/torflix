@@ -21,11 +21,9 @@ type Notifier[T any] interface {
 
 type Common[T any] interface {
 	Listen(func(T)) func()
-	ListenPtr(*T) func()
 	Bind(func(T)) func()
 	UnbindAll()
 	Get() T
-	Reset(T)
 }
 
 type handler[T any] interface {
@@ -48,36 +46,36 @@ type Bind[T any] struct {
 }
 
 func New[T comparable](v T) *Bind[T] {
-	return &Bind[T]{
-		value: v,
-		equal: func(a, b T) bool {
+	return constructor(
+		v,
+		func(a, b T) bool {
 			return a == b
 		},
-	}
+	)
 }
 
 func NewSlice[T comparable](v []T) *Bind[[]T] {
-	return &Bind[[]T]{
-		value: v,
-		equal: func(a, b []T) bool {
+	return constructor(
+		v,
+		func(a, b []T) bool {
 			return slices.Equal(a, b)
 		},
-	}
+	)
 }
 
 func NewSlicePtr[T comparable](v []*T) *Bind[[]*T] {
-	return &Bind[[]*T]{
-		value: v,
-		equal: func(a, b []*T) bool {
+	return constructor(
+		v,
+		func(a, b []*T) bool {
 			return slices.Equal(a, b)
 		},
-	}
+	)
 }
 
 func NewMap[K, V comparable](v map[K]V) *Bind[map[K]V] {
-	return &Bind[map[K]V]{
-		value: v,
-		equal: func(a, b map[K]V) bool {
+	return constructor(
+		v,
+		func(a, b map[K]V) bool {
 			if len(a) != len(b) {
 				return false
 			}
@@ -88,27 +86,27 @@ func NewMap[K, V comparable](v map[K]V) *Bind[map[K]V] {
 			}
 			return true
 		},
-	}
+	)
 }
 
 func NewWithEqual[T any](v T, equal func(T, T) bool) *Bind[T] {
+	return constructor(v, equal)
+}
+
+func NewNotifier[T any]() *Bind[T] {
+	return constructor(*new(T), nil)
+}
+
+func constructor[T any](v T, equal func(T, T) bool) *Bind[T] {
 	return &Bind[T]{
 		value: v,
 		equal: equal,
 	}
 }
 
-func NewNotifier[T any]() *Bind[T] {
-	return &Bind[T]{}
-}
-
 // Bind binds a handler and calls it immediately with the current value.
 func (b *Bind[T]) Bind(h func(T)) func() {
-	b.mu.RLock()
-	v := b.value
-	b.mu.RUnlock()
-
-	h(v) // call immediately with current value
+	h(b.Get()) // call immediately with current value
 
 	return b.Listen(h)
 }
@@ -123,17 +121,9 @@ func (b *Bind[T]) Listen(h func(T)) func() {
 	}
 }
 
-// ListenPtr creates a listener around a pointer.
-// useful to assign values to a widget without triggering change events.
-// eg: ListenPtr(&query.Text)
-func (b *Bind[T]) ListenPtr(h *T) func() {
-	return b.Listen(func(v T) {
-		*h = v
-	})
-}
-
 // Set sets the value and notifies all listeners.
 // If the value as been set and is the same as the current value, it does nothing.
+// If the equal function is nil, it does nothing.
 func (b *Bind[T]) Set(value T) {
 	b.mu.RLock()
 	if b.equal == nil || b.equal(b.value, value) {
@@ -175,14 +165,6 @@ func (b *Bind[T]) Get() T {
 	defer b.mu.RUnlock()
 
 	return b.value
-}
-
-func (b *Bind[T]) Reset(v T) {
-	b.mu.Lock()
-	defer b.mu.Unlock()
-
-	b.value = v
-	b.listeners.Clear()
 }
 
 func (b *Bind[T]) UnbindAll() {

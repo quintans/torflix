@@ -58,7 +58,7 @@ func (n *Navigator) To(to any) {
 
 	n.container.Objects = []fyne.CanvasObject{screen}
 
-	go fyne.DoAndWait(n.container.Refresh)
+	go fyne.Do(n.container.Refresh)
 }
 
 func (n *Navigator) Reset(to any) {
@@ -87,5 +87,5 @@ func (n *Navigator) Back() {
 
 	n.container.Objects = []fyne.CanvasObject{screen}
 
-	go fyne.DoAndWait(n.container.Refresh)
+	go fyne.Do(n.container.Refresh)
 }

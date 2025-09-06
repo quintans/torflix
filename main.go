@@ -324,17 +324,15 @@ func createDialogListener(w fyne.Window) func(msg gapp.Loading) {
 
 func showNotification(notification *mycontainer.NotificationContainer) func(evt gapp.Notify) {
 	return func(evt gapp.Notify) {
-		go fyne.Do(func() {
-			switch evt.Type {
-			case gapp.NotifyError:
-				notification.ShowError(evt.Message)
-			case gapp.NotifyWarn:
-				notification.ShowWarning(evt.Message)
-			case gapp.NotifyInfo:
-				notification.ShowInfo(evt.Message)
-			case gapp.NotifySuccess:
-				notification.ShowSuccess(evt.Message)
-			}
-		})
+		switch evt.Type {
+		case gapp.NotifyError:
+			notification.ShowError(evt.Message)
+		case gapp.NotifyWarn:
+			notification.ShowWarning(evt.Message)
+		case gapp.NotifyInfo:
+			notification.ShowInfo(evt.Message)
+		case gapp.NotifySuccess:
+			notification.ShowSuccess(evt.Message)
+		}
 	}
 }
