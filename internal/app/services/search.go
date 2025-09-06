@@ -167,8 +167,8 @@ func (c Search) transformToMyResult(slug string, r []extractor.Result, qualities
 			Hash:     hash,
 		}
 
+		name := strings.ToLower(r.Name)
 		for i, q := range qualities {
-			name := strings.ToLower(r.Name)
 			if strings.Contains(name, q) {
 				result.Quality = i + 1
 				break

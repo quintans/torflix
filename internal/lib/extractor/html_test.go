@@ -117,13 +117,7 @@ func TestHtmlExtractor(t *testing.T) {
 	searchScraper, err := extractor.NewScraper(searchConfig, detailsSearchConfig)
 	require.NoError(t, err)
 
-	for k, tt := range tests {
-
-		//! delete me
-		if k != 0 {
-			continue
-		}
-
+	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			server := &http.Server{
 				Addr: ":1234",

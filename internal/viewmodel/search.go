@@ -269,13 +269,14 @@ func (s *Search) collapseByHash(results []*SearchData) ([]*SearchData, error) {
 			})
 
 			merged = append(merged, &SearchData{
-				Provider: strings.Join(providers, ","),
-				Name:     dn,
-				Magnet:   magnet,
-				Size:     maxSeeded.Size,
-				Seeds:    maxSeeded.Seeds,
-				Quality:  maxSeeded.Quality,
-				Hash:     maxSeeded.Hash,
+				Provider:    strings.Join(providers, ","),
+				Name:        dn,
+				Magnet:      magnet,
+				Size:        maxSeeded.Size,
+				Seeds:       maxSeeded.Seeds,
+				Quality:     maxSeeded.Quality,
+				QualityName: maxSeeded.QualityName,
+				Hash:        maxSeeded.Hash,
 			})
 		}
 	}

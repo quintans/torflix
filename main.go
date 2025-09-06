@@ -37,7 +37,7 @@ var (
 		"list": "table > tbody > tr",
 		"result": {
 			"name": ["td:nth-child(2) > a:first-of-type", "@title"],
-			"magnet": ["td:nth-child(2) > a:first-of-type", "@href"],
+			"magnet": ["td:nth-child(2) > a:first-of-type", "@href", "/^magnet:\\?.*/"],
 			"size": "td:nth-child(3)",
 			"seeds": "td:nth-child(5)",
 			"source": "td:nth-child(7)"
@@ -49,7 +49,7 @@ var (
 		"list": "table.torrent-list > tbody > tr",
 		"result": {
 			"name": ["td:nth-child(2) > a:last-child", "@title"],
-			"magnet": ["td:nth-child(3) > a:nth-child(2)", "@href"],
+			"magnet": ["td:nth-child(3) > a:nth-child(2)", "@href", "/^magnet:\\?.*/"],
 			"size": "td:nth-child(4)",
 			"seeds": "td:nth-child(6)"
 		}
@@ -61,7 +61,7 @@ var (
 		"list": "table.table-list > tbody > tr",
 		"result": {
 			"name": ["td.name > a:nth-child(2)"],
-			"follow": ["td.name > a:nth-child(2)", "@href"],
+			"follow": ["td.name > a:nth-child(2)", "@href", "/^magnet:\\?.*/"],
 			"size": ["td.size"],
 			"seeds": "td.seeds"
 		}
@@ -92,7 +92,7 @@ var (
 		"url": "https://bt4gprx.com{{link}}",
 		"list": "div.card-body",
 		"result": {
-			"magnet":["a:nth-child(3)", "@href", "/magnet:\\?.*/"]
+			"magnet":["a:nth-child(3)", "@href", "/^magnet:\\?.*/"]
 		}
 	}
 }`)
