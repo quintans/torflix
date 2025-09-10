@@ -2,7 +2,9 @@ package app
 
 import "github.com/anacrolix/torrent"
 
-type AppParams struct{}
+type AppParams struct {
+	Query string
+}
 
 type DownloadListParams struct {
 	Files         []*torrent.File

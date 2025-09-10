@@ -28,6 +28,7 @@ type Search struct {
 	shared            *Shared
 	searchService     SearchService
 	downloadService   DownloadService
+	params            app.AppParams
 	OriginalQuery     string
 	Providers         []string
 	Query             bind.Setter[string]
@@ -54,12 +55,13 @@ type SearchData struct {
 	Cached      bool
 }
 
-func NewSearch(shared *Shared, searchService SearchService, downloadService DownloadService) *Search {
+func NewSearch(shared *Shared, searchService SearchService, downloadService DownloadService, params app.AppParams) *Search {
 	s := &Search{
 		shared:          shared,
 		searchService:   searchService,
 		downloadService: downloadService,
 		SearchResults:   bind.NewNotifier[[]*SearchData](),
+		params:          params,
 	}
 
 	s.mount()
@@ -73,8 +75,22 @@ func (s *Search) mount() {
 		s.shared.Error(err, "Failed to load search data")
 		return
 	}
-	s.Query = bind.New[string](data.Model.Query())
-	s.MediaName = bind.New[string](data.Model.MediaName())
+	if s.params.Query != "" {
+		s.Query = bind.New[string](s.params.Query)
+		if IsTorrentResource(s.params.Query) {
+			m, err := magnet.Parse(s.params.Query) // just to validate
+			if err != nil {
+				s.shared.Error(err, "Invalid magnet link")
+				return
+			}
+			s.MediaName = bind.New[string](m.DisplayName)
+		} else {
+			s.MediaName = bind.New[string]("")
+		}
+	} else {
+		s.Query = bind.New[string](data.Model.Query())
+		s.MediaName = bind.New[string](data.Model.MediaName())
+	}
 
 	if len(data.Providers) == 0 {
 		s.shared.Error(nil, "No providers available for search")

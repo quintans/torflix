@@ -8,11 +8,10 @@ import (
 )
 
 type DownloadList struct {
-	shared        *Shared
-	params        app.DownloadListParams
-	service       DownloadService
-	originalQuery string
-	FileItems     bind.Notifier[[]*FileItem]
+	shared    *Shared
+	params    app.DownloadListParams
+	service   DownloadService
+	FileItems bind.Notifier[[]*FileItem]
 }
 
 type FileItem struct {

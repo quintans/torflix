@@ -110,7 +110,23 @@ var (
 }`)
 )
 
+type View[T any] struct {
+	VM          T
+	Constructor func(T) (screen fyne.CanvasObject, close func(bool))
+}
+
+func (v View[T]) Create() (screen fyne.CanvasObject, close func(bool)) {
+	return v.Constructor(v.VM)
+}
+
 func main() {
+	var query string
+	// gets the first argument
+	args := os.Args
+	if len(args) > 1 {
+		query = args[1]
+	}
+
 	cacheDir := os.Getenv("TORFLIX_CACHE_DIR")
 	if cacheDir == "" {
 		path, err := os.UserCacheDir()
@@ -226,38 +242,41 @@ func main() {
 	margin := float32(10)
 	anchor.Add(notification.Container(), mycontainer.AnchorConstraints{Top: &margin, Right: &margin})
 
-	navigator := navigation.New(content)
-	shared.Navigate = navigator
-
-	navigator.Factory = func(to any) navigation.ViewFactory {
+	factory := func(to any) navigation.ViewFactory {
 		switch t := to.(type) {
 		case gapp.AppParams:
-			vm := viewmodel.NewApp(
-				shared,
-				appSvc,
-				searchSvc,
-				cacheSvc,
-				downloadSvc,
-				cachedDir,
-			)
-			return func() (fyne.CanvasObject, func(bool)) {
-				return view.App(vm)
+			return &View[*viewmodel.App]{
+				VM: viewmodel.NewApp(
+					shared,
+					appSvc,
+					searchSvc,
+					cacheSvc,
+					downloadSvc,
+					cachedDir,
+					t,
+				),
+				Constructor: view.App,
 			}
 		case gapp.DownloadListParams:
-			vm := viewmodel.NewDownloadList(shared, downloadSvc, t)
-			return func() (fyne.CanvasObject, func(bool)) {
-				return view.DownloadList(vm)
+			return &View[*viewmodel.DownloadList]{
+				VM:          viewmodel.NewDownloadList(shared, downloadSvc, t),
+				Constructor: view.DownloadList,
 			}
 		case gapp.DownloadParams:
-			vm := viewmodel.NewDownload(shared, downloadSvc, t)
-			return func() (fyne.CanvasObject, func(bool)) {
-				return view.Download(vm)
+			return &View[*viewmodel.Download]{
+				VM:          viewmodel.NewDownload(shared, downloadSvc, t),
+				Constructor: view.Download,
 			}
 		}
 
 		return nil
 	}
-	navigator.To(gapp.AppParams{})
+	navigator := navigation.New(content, factory)
+	shared.Navigate = navigator
+
+	navigator.To(gapp.AppParams{
+		Query: query,
+	})
 
 	w.SetContent(anchor.Container)
 	w.ShowAndRun()

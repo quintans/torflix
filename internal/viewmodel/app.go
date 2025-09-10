@@ -1,6 +1,7 @@
 package viewmodel
 
 import (
+	"github.com/quintans/torflix/internal/app"
 	"github.com/quintans/torflix/internal/lib/bind"
 	"github.com/quintans/torflix/internal/model"
 )
@@ -29,6 +30,7 @@ func NewApp(shared *Shared,
 	cacheService CacheService,
 	downloadService DownloadService,
 	cacheDir string,
+	params app.AppParams,
 ) *App {
 	a := &App{
 		shared:          shared,
@@ -37,7 +39,7 @@ func NewApp(shared *Shared,
 		cacheService:    cacheService,
 		downloadService: downloadService,
 		Cache:           NewCache(shared, cacheDir, cacheService, downloadService),
-		Search:          NewSearch(shared, searchService, downloadService),
+		Search:          NewSearch(shared, searchService, downloadService, params),
 	}
 
 	data, err := a.appService.LoadData()
