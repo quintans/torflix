@@ -29,13 +29,13 @@ type Search struct {
 	searchService     SearchService
 	downloadService   DownloadService
 	params            app.AppParams
+	Results           []*SearchData
 	OriginalQuery     string
 	Providers         []string
 	Query             bind.Setter[string]
 	MediaName         bind.Setter[string]
 	SelectedProviders bind.Setter[map[string]bool]
 	DownloadSubtitles bind.Setter[bool]
-	SearchResults     bind.Notifier[[]*SearchData]
 }
 
 type SearchResult struct {
@@ -60,7 +60,6 @@ func NewSearch(shared *Shared, searchService SearchService, downloadService Down
 		shared:          shared,
 		searchService:   searchService,
 		downloadService: downloadService,
-		SearchResults:   bind.NewNotifier[[]*SearchData](),
 		params:          params,
 	}
 
@@ -123,7 +122,6 @@ func (s *Search) Unmount() {
 	s.MediaName.UnbindAll()
 	s.SelectedProviders.UnbindAll()
 	s.DownloadSubtitles.UnbindAll()
-	s.SearchResults.UnbindAll()
 }
 
 func IsTorrentResource(link string) bool {
@@ -133,7 +131,7 @@ func IsTorrentResource(link string) bool {
 		strings.HasSuffix(link, ".torrent")
 }
 
-func (s *Search) SearchAsync() bool {
+func (s *Search) Search(onResults func([]*SearchData)) bool {
 	query := strings.TrimSpace(s.Query.Get())
 	mediaName := strings.TrimSpace(s.MediaName.Get())
 
@@ -213,7 +211,8 @@ func (s *Search) SearchAsync() bool {
 	// results may be >= 0 but the data may be empty (where seeds = 0)
 	if len(data) == 0 {
 		s.shared.Info("No results found for query")
-		s.SearchResults.NotifyAsync(data)
+		s.Results = data
+		onResults(data)
 
 		return false
 	}
@@ -231,7 +230,8 @@ func (s *Search) SearchAsync() bool {
 		return cmp.Compare(a.Seeds, b.Seeds)
 	})
 
-	s.SearchResults.NotifyAsync(data)
+	s.Results = data
+	onResults(data)
 
 	return true
 }

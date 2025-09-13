@@ -3,19 +3,15 @@ package bind
 import (
 	"slices"
 	"sync"
-
-	"fyne.io/fyne/v2"
 )
 
 type Setter[T any] interface {
 	Set(T)
-	SetAsync(T)
 	Common[T]
 }
 
 type Notifier[T any] interface {
 	Notify(T)
-	NotifyAsync(T)
 	Common[T]
 }
 
@@ -135,12 +131,6 @@ func (b *Bind[T]) Set(value T) {
 	b.Notify(value)
 }
 
-func (b *Bind[T]) SetAsync(value T) {
-	fyne.DoAndWait(func() {
-		b.Set(value)
-	})
-}
-
 // Notify sets the value without and notifies all listeners.
 func (b *Bind[T]) Notify(value T) {
 	b.mu.Lock()
@@ -150,12 +140,6 @@ func (b *Bind[T]) Notify(value T) {
 	b.listeners.Range(func(k, _ any) bool {
 		k.(handler[T]).handle(value)
 		return true
-	})
-}
-
-func (b *Bind[T]) NotifyAsync(value T) {
-	fyne.DoAndWait(func() {
-		b.Notify(value)
 	})
 }
 

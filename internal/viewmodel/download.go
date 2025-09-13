@@ -10,7 +10,6 @@ import (
 
 	"github.com/anacrolix/torrent"
 	"github.com/quintans/torflix/internal/app"
-	"github.com/quintans/torflix/internal/lib/bind"
 	"github.com/quintans/torflix/internal/lib/timer"
 )
 
@@ -43,17 +42,13 @@ type Download struct {
 	subtitlesDir   string
 	ctx            context.Context
 	cancel         func()
-	Status         bind.Notifier[app.Stats]
-	Playable       bind.Notifier[bool]
 }
 
 func NewDownload(shared *Shared, service DownloadService, params app.DownloadParams) *Download {
 	d := &Download{
-		shared:   shared,
-		service:  service,
-		Status:   bind.NewNotifier[app.Stats](),
-		Playable: bind.NewNotifier[bool](),
-		params:   params,
+		shared:  shared,
+		service: service,
+		params:  params,
 	}
 
 	d.ctx, d.cancel = context.WithCancel(context.Background())
@@ -86,7 +81,7 @@ func (d *Download) TorrentSubFilename() string {
 	return ""
 }
 
-func (d *Download) ServeAsync() bool {
+func (d *Download) Serve(onStats func(stats app.Stats)) bool {
 	qc := d.getQueryComponents(d.params.FileToPlay, d.params.OriginalQuery)
 	if d.params.Subtitles {
 		t := timer.New(time.Second, func() {
@@ -120,9 +115,7 @@ func (d *Download) ServeAsync() bool {
 		d.subtitlesDir = subtitlesDir
 	}
 
-	err := d.service.ServeFile(d.ctx, d.shared.Error, d.params.FileToPlay, qc.mediaName, func(stats app.Stats) {
-		d.Status.NotifyAsync(stats)
-	})
+	err := d.service.ServeFile(d.ctx, d.shared.Error, d.params.FileToPlay, qc.mediaName, onStats)
 	if err != nil {
 		d.shared.Error(err, "Failed to serve file")
 		return false
@@ -133,12 +126,8 @@ func (d *Download) ServeAsync() bool {
 	return true
 }
 
-func (d *Download) Play() {
-	d.Playable.Notify(false)
-
-	err := d.service.Play(d.ctx, d.shared.Error, d.queryAndSeason, d.subtitlesDir, func() {
-		d.Playable.NotifyAsync(true)
-	})
+func (d *Download) Play(onClose func()) {
+	err := d.service.Play(d.ctx, d.shared.Error, d.queryAndSeason, d.subtitlesDir, onClose)
 	if err != nil {
 		d.shared.Error(err, "Failed to play file")
 	}

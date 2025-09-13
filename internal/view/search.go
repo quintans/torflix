@@ -76,7 +76,7 @@ func buildSearch(vm *viewmodel.App) fyne.CanvasObject {
 	subtitles.SetChecked(vm.Search.DownloadSubtitles.Get())
 	subtitles.OnChanged = vm.Search.DownloadSubtitles.Set
 
-	var data []*viewmodel.SearchData
+	data := vm.Search.Results
 	result := widget.NewList(
 		func() int {
 			return len(data)
@@ -124,19 +124,19 @@ func buildSearch(vm *viewmodel.App) fyne.CanvasObject {
 		result.UnselectAll()
 
 		go func() {
-			if !vm.Search.SearchAsync() {
+			if !vm.Search.Search(func(results []*viewmodel.SearchData) {
+				fyne.DoAndWait(func() {
+					data = results
+					searchBtn.Enable()
+					result.Show()
+					result.UnselectAll()
+					result.Refresh()
+				})
+			}) {
 				fyne.DoAndWait(searchBtn.Enable)
 			}
 		}()
 	}
-
-	vm.Search.SearchResults.Bind(func(results []*viewmodel.SearchData) {
-		data = results
-		searchBtn.Enable()
-		result.Show()
-		result.UnselectAll()
-		result.Refresh()
-	})
 
 	vm.Cache.CacheCleared.Listen(func(bool) {
 		for i := range data {
