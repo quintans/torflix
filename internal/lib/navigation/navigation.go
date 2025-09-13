@@ -1,23 +1,18 @@
-// Navigator manages screen navigation with a simple stack
-// It uses a factory function to create views on demand
-// Each view is responsible for creating its own content and handling cleanup when navigated away from
-// This allows for lazy loading of views and better resource management
-// The navigator maintains a stack of views to allow for back navigation
-// Each view can implement a close function to handle cleanup when navigated away from
-// The navigator ensures that the close function is called appropriately on forward and backward navigation
-// The navigator also provides a reset function to clear the stack and navigate to a new view
-//
-// WARNING: Unfortunately, fyne internally caches widgets and does not fully release resources
-// when they are removed from the container. This can lead to increased memory usage over time
-// if many different views are created and destroyed. To mitigate this, views should implement
-// proper cleanup in their close functions, and the navigator should be used judiciously to avoid
-// excessive view creation and destruction.
+// Navigator manages screen navigation with a simple stack.
+// It uses a factory function to create views on demand.
+// Each view is responsible for creating its own content and handling cleanup when navigated away from.
+// This allows for lazy loading of views and better resource management.
+// The navigator maintains a stack of views to allow for back navigation.
+// Each view can implement a close function to handle cleanup when navigated away from.
+// The navigator ensures that the close function is called appropriately on forward and backward navigation.
+// The navigator also provides a reset function to clear the stack and navigate to a new view.
 
 package navigation
 
 import (
 	"fmt"
 	"log/slog"
+	"runtime"
 
 	"fyne.io/fyne/v2"
 	"github.com/quintans/torflix/internal/lib/ds"
@@ -76,9 +71,7 @@ func (n *Navigator) To(to any) {
 	}
 	n.stack.Push(next)
 
-	n.container.Objects = []fyne.CanvasObject{screen}
-
-	go fyne.Do(n.container.Refresh)
+	n.show(screen)
 }
 
 func (n *Navigator) Reset(to any) {
@@ -100,8 +93,11 @@ func (n *Navigator) Back() {
 	last, _ = n.stack.Peek()
 	if last == nil {
 		slog.Warn("Navigator stack is empty after pop")
-		n.container.RemoveAll()
-		go fyne.Do(n.container.Refresh)
+		go fyne.Do(func() {
+			n.container.Objects = nil
+			n.container.Refresh()
+			runtime.GC()
+		})
 		return
 	}
 
@@ -109,7 +105,13 @@ func (n *Navigator) Back() {
 	screen, close := view.Create()
 	last.close = close // Update close function for the previous screen
 
-	n.container.Objects = []fyne.CanvasObject{screen}
+	n.show(screen)
+}
 
-	go fyne.Do(n.container.Refresh)
+func (n *Navigator) show(screen fyne.CanvasObject) {
+	go fyne.Do(func() {
+		n.container.Objects = []fyne.CanvasObject{screen}
+		n.container.Refresh()
+		runtime.GC()
+	})
 }
