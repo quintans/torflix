@@ -252,7 +252,7 @@ func main() {
 					searchSvc,
 					cacheSvc,
 					downloadSvc,
-					cachedDir,
+					cacheDir,
 					t,
 				),
 				Constructor: view.App,
