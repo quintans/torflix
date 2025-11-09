@@ -128,7 +128,7 @@ func NewTorrentClient(cfg ClientConfig, torrentDir, mediaDir string, resource st
 
 	<-t.GotInfo()
 
-	if isMagnet(torrentPath) {
+	if torrentFile == "" {
 		err = saveTorrent(torrentDir, t)
 		if err != nil {
 			return nil, faults.Errorf("saving torrent: %w", err)
@@ -220,9 +220,6 @@ func (c *TorrentClient) PauseTorrent() {
 
 // Close cleans up the connections.
 func (c *TorrentClient) Close() {
-	c.Torrent.Closed()
-	c.Torrent.Drop()
-
 	errs := c.Client.Close()
 	for _, err := range errs {
 		slog.Error("Failed closing torrent client.", "error", err)
@@ -236,20 +233,17 @@ func (c *TorrentClient) Stats() app.Stats {
 	}
 
 	t := c.Torrent
-
-	c.File.BytesCompleted()
-
 	if t.Info() == nil {
 		return app.Stats{}
 	}
 
 	tStats := t.Stats()
-	currentProgress := c.File.BytesCompleted()
-	size := c.File.Length()
-
 	// upload
 	bytesWrittenData := tStats.BytesWrittenData
 	currentUpload := (&bytesWrittenData).Int64()
+
+	currentProgress := c.File.BytesCompleted()
+	size := c.File.Length()
 
 	fps := c.File.State()
 	pieces := make([]bool, len(fps))
