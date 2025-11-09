@@ -92,8 +92,6 @@ func (c *Download) ServeFile(
 	mediaName string,
 	setStats func(app.Stats),
 ) error {
-	c.client.Play(file)
-
 	settings, err := c.repo.LoadSettings()
 	if err != nil {
 		return faults.Errorf("loading settings: %w", err)
@@ -125,6 +123,8 @@ func (c *Download) ServeFile(
 			}
 		}
 	}()
+
+	c.client.Play(file)
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("/"+mediaName, c.client.GetFile(mediaName))

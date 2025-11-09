@@ -1,6 +1,7 @@
 package tor
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"log/slog"
@@ -127,7 +128,7 @@ func NewTorrentClient(cfg ClientConfig, torrentDir, mediaDir string, resource st
 
 	<-t.GotInfo()
 
-	if isMagnet(torrentFile) {
+	if isMagnet(torrentPath) {
 		err = saveTorrent(torrentDir, t)
 		if err != nil {
 			return nil, faults.Errorf("saving torrent: %w", err)
@@ -185,6 +186,12 @@ func isMagnet(s string) bool {
 }
 
 func (c *TorrentClient) Play(file *torrent.File) {
+	go func() {
+		if err := c.Torrent.VerifyDataContext(context.Background()); err != nil {
+			slog.Error("Failed to verify torrent data on startup", "error", err)
+		}
+	}()
+
 	c.paused = false
 	c.torrentConfig.Seed = c.Config.Seed
 	c.torrentConfig.NoUpload = !c.Config.Seed
