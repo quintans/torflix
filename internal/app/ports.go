@@ -22,16 +22,24 @@ type Message interface {
 	Kind() string
 }
 
+type Status int
+
+const (
+	StatusNotReady Status = iota
+	StatusScanning
+	StatusReadyForPlayback
+)
+
 type Stats struct {
-	Stream           string
-	ReadyForPlayback bool
-	Complete         int64
-	Size             int64
-	DownloadSpeed    int64
-	UploadSpeed      int64
-	Seeders          int
-	Done             bool
-	Pieces           []bool
+	Stream        string
+	Status        Status
+	Complete      int64
+	Size          int64
+	DownloadSpeed int64
+	UploadSpeed   int64
+	Seeders       int
+	Done          bool
+	Pieces        []bool
 }
 
 type TorrentClient interface {

@@ -101,9 +101,12 @@ func (c *Download) ServeFile(
 		const interval = 2
 		fn := func() {
 			stats := c.client.Stats()
-			if stats.Pieces == nil || stats.ReadyForPlayback {
+			switch stats.Status {
+			case app.StatusReadyForPlayback:
 				stats.Stream = fmt.Sprintf(localhost, settings.Port(), mediaName)
-			} else {
+			case app.StatusScanning:
+				stats.Stream = "Scanning..."
+			default:
 				stats.Stream = "Not ready for playback"
 			}
 			// normalize speed

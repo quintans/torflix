@@ -23,6 +23,14 @@ import (
 
 var isHTTP = regexp.MustCompile(`^https?:\/\/`)
 
+type Status int
+
+const (
+	StatusPaused Status = iota
+	StatusScanning
+	StatusPlaying
+)
+
 // TorrentClient manages the torrent downloading.
 type TorrentClient struct {
 	Client     *torrent.Client
@@ -33,7 +41,7 @@ type TorrentClient struct {
 	Config     ClientConfig
 	File       *torrent.File
 	TorrentDir string
-	paused     bool
+	status     Status
 
 	torrentConfig *torrent.ClientConfig
 }
@@ -186,17 +194,16 @@ func isMagnet(s string) bool {
 }
 
 func (c *TorrentClient) Play(file *torrent.File) {
-	go func() {
-		if err := c.Torrent.VerifyDataContext(context.Background()); err != nil {
-			slog.Error("Failed to verify torrent data on startup", "error", err)
-		}
-	}()
+	c.File = file
+	c.status = StatusScanning
 
-	c.paused = false
+	if err := c.Torrent.VerifyDataContext(context.Background()); err != nil {
+		slog.Error("Failed to verify torrent data on startup", "error", err)
+	}
+
+	c.status = StatusPlaying
 	c.torrentConfig.Seed = c.Config.Seed
 	c.torrentConfig.NoUpload = !c.Config.Seed
-
-	c.File = file
 
 	t := c.Torrent
 	// downloading only the pieces we need
@@ -212,7 +219,7 @@ func (c *TorrentClient) Play(file *torrent.File) {
 }
 
 func (c *TorrentClient) PauseTorrent() {
-	c.paused = true
+	c.status = StatusPaused
 	c.torrentConfig.NoUpload = true
 	c.torrentConfig.Seed = false
 	c.Torrent.CancelPieces(0, c.Torrent.NumPieces())
@@ -228,8 +235,22 @@ func (c *TorrentClient) Close() {
 
 // Render outputs the command line interface for the client.
 func (c *TorrentClient) Stats() app.Stats {
-	if c.paused {
+	if c.File == nil || c.status == StatusPaused {
 		return app.Stats{}
+	}
+
+	fps := c.File.State()
+	pieces := make([]bool, len(fps))
+	for i, fp := range fps {
+		pieces[i] = fp.Complete
+	}
+	if c.status == StatusScanning {
+		return app.Stats{
+			Complete: c.Progress,
+			Size:     c.File.Length(),
+			Pieces:   pieces,
+			Status:   app.StatusScanning,
+		}
 	}
 
 	t := c.Torrent
@@ -245,12 +266,6 @@ func (c *TorrentClient) Stats() app.Stats {
 	currentProgress := c.File.BytesCompleted()
 	size := c.File.Length()
 
-	fps := c.File.State()
-	pieces := make([]bool, len(fps))
-	for i, fp := range fps {
-		pieces[i] = fp.Complete
-	}
-
 	stats := app.Stats{
 		Complete:      currentProgress,
 		Size:          size,
@@ -265,14 +280,16 @@ func (c *TorrentClient) Stats() app.Stats {
 	c.Uploaded = currentUpload
 	c.Size = size
 
-	if !c.paused && stats.Done && !c.Config.SeedAfterComplete {
+	if stats.Done && !c.Config.SeedAfterComplete {
 		c.PauseTorrent()
 		stats.UploadSpeed = 0
 		stats.DownloadSpeed = 0
 		stats.Seeders = 0
 	}
 
-	stats.ReadyForPlayback = c.ReadyForPlayback()
+	if c.ReadyForPlayback() {
+		stats.Status = app.StatusReadyForPlayback
+	}
 
 	return stats
 }
