@@ -33,15 +33,16 @@ const (
 
 // TorrentClient manages the torrent downloading.
 type TorrentClient struct {
-	Client     *torrent.Client
-	Torrent    *torrent.Torrent
-	Progress   int64
-	Uploaded   int64
-	Size       int64
-	Config     ClientConfig
-	File       *torrent.File
-	TorrentDir string
-	status     Status
+	Client         *torrent.Client
+	Torrent        *torrent.Torrent
+	Progress       int64
+	Uploaded       int64
+	Size           int64
+	Config         ClientConfig
+	File           *torrent.File
+	TorrentDir     string
+	status         Status
+	piecesComplete int
 
 	torrentConfig *torrent.ClientConfig
 }
@@ -197,9 +198,20 @@ func (c *TorrentClient) Play(file *torrent.File) {
 	c.File = file
 	c.status = StatusScanning
 
-	if err := c.Torrent.VerifyDataContext(context.Background()); err != nil {
-		slog.Error("Failed to verify torrent data on startup", "error", err)
-	}
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		t := c.Torrent
+		for i := 0; i < t.NumPieces(); i++ {
+			err := t.Piece(i).VerifyDataContext(context.Background())
+			if err != nil {
+				slog.Error("Failed to verify piece data on startup", "piece", i, "error", err)
+				return
+			}
+			c.piecesComplete = i + 1
+		}
+	}()
+	<-done
 
 	c.status = StatusPlaying
 	c.torrentConfig.Seed = c.Config.Seed
@@ -246,10 +258,11 @@ func (c *TorrentClient) Stats() app.Stats {
 	}
 	if c.status == StatusScanning {
 		return app.Stats{
-			Complete: c.Progress,
-			Size:     c.File.Length(),
-			Pieces:   pieces,
-			Status:   app.StatusScanning,
+			Complete:       c.Progress,
+			Size:           c.File.Length(),
+			Pieces:         pieces,
+			Status:         app.StatusScanning,
+			PiecesComplete: (c.piecesComplete * 100) / len(fps),
 		}
 	}
 

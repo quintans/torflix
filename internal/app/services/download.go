@@ -105,7 +105,7 @@ func (c *Download) ServeFile(
 			case app.StatusReadyForPlayback:
 				stats.Stream = fmt.Sprintf(localhost, settings.Port(), mediaName)
 			case app.StatusScanning:
-				stats.Stream = "Scanning..."
+				stats.Stream = fmt.Sprintf("Scanning... %d%%", stats.PiecesComplete)
 			default:
 				stats.Stream = "Not ready for playback"
 			}

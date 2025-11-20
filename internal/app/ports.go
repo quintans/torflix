@@ -31,15 +31,16 @@ const (
 )
 
 type Stats struct {
-	Stream        string
-	Status        Status
-	Complete      int64
-	Size          int64
-	DownloadSpeed int64
-	UploadSpeed   int64
-	Seeders       int
-	Done          bool
-	Pieces        []bool
+	Stream         string
+	Status         Status
+	Complete       int64
+	Size           int64
+	DownloadSpeed  int64
+	UploadSpeed    int64
+	Seeders        int
+	Done           bool
+	Pieces         []bool
+	PiecesComplete int // in percentage
 }
 
 type TorrentClient interface {
