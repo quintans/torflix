@@ -198,17 +198,17 @@ func (c *TorrentClient) Play(file *torrent.File) {
 	c.File = file
 	c.status = StatusScanning
 
+	c.piecesComplete = 0
 	done := make(chan struct{})
 	go func() {
 		defer close(done)
-		t := c.Torrent
-		for i := 0; i < t.NumPieces(); i++ {
-			err := t.Piece(i).VerifyDataContext(context.Background())
+		for v := range file.Pieces() {
+			err := v.VerifyDataContext(context.Background())
 			if err != nil {
-				slog.Error("Failed to verify piece data on startup", "piece", i, "error", err)
+				slog.Error("Failed to verify piece data on startup", "error", err)
 				return
 			}
-			c.piecesComplete = i + 1
+			c.piecesComplete++
 		}
 	}()
 	<-done
