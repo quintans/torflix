@@ -28,7 +28,14 @@ func NewSettings() *Settings {
 	return &Settings{
 		port: 8080,
 		player: Player{
-			Args: []string{"mpv", "--save-position-on-quit", "--sub-auto=all", "--profile=fast", "--hwdec=auto-safe"},
+			Args: []string{
+				"mpv",
+				"--save-position-on-quit",
+				"--sub-auto=all",
+				"--profile=fast",
+				"--hwdec=auto-safe",
+				"--fs",
+			},
 			Subs: "--sub-file-paths=",
 		},
 		torrentPort:       50007,
@@ -156,6 +163,4 @@ func (m *Settings) Hydrate(
 	m.OpenSubtitles = OpenSubtitles
 }
 
-var (
-	qualities = []string{"720p", "1080p", "2160p"}
-)
+var qualities = []string{"720p", "1080p", "2160p"}

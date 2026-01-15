@@ -153,9 +153,10 @@ func (d *DB) write(file string, data any) error {
 		return faults.Errorf("marshalling data for '%s': %w", file, err)
 	}
 
-	err = os.WriteFile(filepath.Join(d.dir, file), b, os.ModePerm)
+	path := filepath.Join(d.dir, file)
+	err = os.WriteFile(path, b, os.ModePerm)
 	if err != nil {
-		return faults.Errorf("writing data for '%s': %w", file, err)
+		return faults.Errorf("writing data for '%s': %w", path, err)
 	}
 
 	return nil
@@ -166,14 +167,15 @@ func (d *DB) Exists(file string) bool {
 }
 
 func (d *DB) read(file string, data any) error {
-	b, err := os.ReadFile(filepath.Join(d.dir, file))
+	path := filepath.Join(d.dir, file)
+	b, err := os.ReadFile(path)
 	if err != nil {
 		return faults.Errorf("reading data for '%s': %w", file, err)
 	}
 
 	err = json.Unmarshal(b, data)
 	if err != nil {
-		return faults.Errorf("unmarshalling data for '%s': %w", file, err)
+		return faults.Errorf("unmarshalling data for '%s': %w", path, err)
 	}
 
 	return nil
