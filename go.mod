@@ -1,6 +1,6 @@
 module github.com/quintans/torflix
 
-go 1.25
+go 1.26
 
 require (
 	fyne.io/fyne/v2 v2.6.3
