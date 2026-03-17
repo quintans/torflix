@@ -100,21 +100,25 @@ func buildSearch(vm *viewmodel.App) fyne.CanvasObject {
 	result.OnSelected = func(id widget.ListItemID) {
 		result.UnselectAll()
 		result.Hide()
-		d := data[id]
-		d.Cached = true
-		vm.Cache.Add(vm.Search.OriginalQuery, &model.CacheData{
-			Provider: d.Provider,
-			Name:     d.Name,
-			Magnet:   d.Magnet,
-			Size:     d.Size,
-			Seeds:    strconv.Itoa(d.Seeds),
-			Quality:  d.QualityName,
-			Hash:     d.Hash,
-		})
+
 		go func() {
-			if !vm.Search.Download(d.Magnet) {
+			d := data[id]
+			folderName, ok := vm.Search.Download(d.Magnet)
+			if !ok {
 				fyne.DoAndWait(result.Show)
 			}
+			d.Cached = true
+			vm.Cache.Add(vm.Search.OriginalQuery, &model.CacheData{
+				FolderName: folderName,
+				Provider:   d.Provider,
+				Name:       d.Name,
+				Magnet:     d.Magnet,
+				Size:       d.Size,
+				Seeds:      strconv.Itoa(d.Seeds),
+				Quality:    d.QualityName,
+				Hash:       d.Hash,
+			})
+
 		}()
 	}
 
@@ -138,11 +142,22 @@ func buildSearch(vm *viewmodel.App) fyne.CanvasObject {
 		}()
 	}
 
-	vm.Cache.CacheCleared.Listen(func(bool) {
+	vm.Cache.CacheCleared.Listen(func(c *model.CacheData) {
+		defer result.Refresh()
+
+		if c != nil {
+			for i := range data {
+				if data[i].Hash == c.Hash {
+					data[i].Cached = false
+				}
+			}
+			return
+		}
+
 		for i := range data {
 			data[i].Cached = false
 		}
-		result.Refresh()
+
 	})
 
 	options := container.NewVBox(mediaName, pillContainer, subtitles)

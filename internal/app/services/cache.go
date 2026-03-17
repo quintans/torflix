@@ -105,3 +105,26 @@ func (a *Cache) ClearCache() error {
 
 	return nil
 }
+
+func (a *Cache) Delete(data *model.CacheData) error {
+	fullpath := filepath.Join(a.cacheDir, data.Hash+".json")
+	err := os.Remove(fullpath)
+	if err != nil {
+		return faults.Errorf("Failed to delete cache file %s: %w", fullpath, err)
+	}
+	torrentPath := filepath.Join(a.torrentsDir, data.Hash+".torrent")
+	err = os.Remove(torrentPath)
+	if err != nil {
+		return faults.Errorf("Failed to delete torrent file %s: %w", torrentPath, err)
+	}
+
+	if data.FolderName != "" {
+		mediaPath := filepath.Join(a.mediaDir, data.FolderName)
+		err = os.RemoveAll(mediaPath)
+		if err != nil {
+			return faults.Errorf("Failed to delete media cache %s: %w", mediaPath, err)
+		}
+	}
+
+	return nil
+}

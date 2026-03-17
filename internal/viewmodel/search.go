@@ -170,7 +170,8 @@ func (s *Search) Search(onResults func([]*SearchData)) bool {
 		}
 
 		s.OriginalQuery = mn
-		return download(s.shared, s.downloadService, s.OriginalQuery, query, s.DownloadSubtitles.Get())
+		_, ok := download(s.shared, s.downloadService, s.OriginalQuery, query, s.DownloadSubtitles.Get())
+		return ok
 	}
 
 	d := timer.New(time.Second, func() {
@@ -236,7 +237,7 @@ func (s *Search) Search(onResults func([]*SearchData)) bool {
 	return true
 }
 
-func (s *Search) Download(magnetLink string) bool {
+func (s *Search) Download(magnetLink string) (string, bool) {
 	return download(s.shared, s.downloadService, s.OriginalQuery, magnetLink, s.DownloadSubtitles.Get())
 }
 

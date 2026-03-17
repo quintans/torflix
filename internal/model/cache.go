@@ -4,6 +4,7 @@ type CacheData struct {
 	OriginalQuery string `json:"original_query"`
 	Provider      string `json:"provider"`
 	Name          string `json:"name"`
+	FolderName    string `json:"folder_name"`
 	Size          string `json:"size"`
 	Seeds         string `json:"seeds"`
 	Quality       string `json:"quality"`

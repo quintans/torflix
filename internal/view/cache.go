@@ -33,16 +33,27 @@ func buildCache(vm *viewmodel.App) fyne.CanvasObject {
 	vbox.Add(widget.NewSeparator())
 
 	var data []*model.CacheData
-	result := widget.NewList(
+	var result *widget.List
+	result = widget.NewList(
 		func() int {
 			return len(data)
 		},
 		func() fyne.CanvasObject {
-			return components.NewMagnetListItem()
+			item := components.NewMagnetListItem()
+			delete := widget.NewButton("Delete", nil)
+			delete.Importance = widget.DangerImportance
+			hb := container.NewBorder(nil, nil, nil, delete, item)
+			return hb
 		},
 		func(i widget.ListItemID, o fyne.CanvasObject) {
 			r := data[i]
-			o.(*components.MagnetListItem).SetData(&components.MagnetItem{
+			hb := o.(*fyne.Container)
+			delete := hb.Objects[1].(*widget.Button)
+			item := hb.Objects[0].(*components.MagnetListItem)
+			delete.OnTapped = func() {
+				vm.Cache.Delete(i)
+			}
+			item.SetData(&components.MagnetItem{
 				Provider: r.Provider,
 				Name:     r.Name,
 				Size:     r.Size,

@@ -1,6 +1,8 @@
 package viewmodel
 
 import (
+	"slices"
+
 	"github.com/quintans/torflix/internal/lib/bind"
 	"github.com/quintans/torflix/internal/model"
 )
@@ -9,6 +11,7 @@ type CacheService interface {
 	LoadAllCached() ([]*model.CacheData, error)
 	SaveCache(data *model.CacheData) error
 	ClearCache() error
+	Delete(data *model.CacheData) error
 }
 
 type Cache struct {
@@ -16,7 +19,7 @@ type Cache struct {
 	cacheService    CacheService
 	downloadService DownloadService
 	CacheDir        string
-	CacheCleared    bind.Notifier[bool]
+	CacheCleared    bind.Notifier[*model.CacheData]
 	Results         bind.Notifier[[]*model.CacheData]
 }
 
@@ -26,7 +29,7 @@ func NewCache(shared *Shared, cacheDir string, cacheService CacheService, downlo
 		cacheService:    cacheService,
 		downloadService: downloadService,
 		CacheDir:        cacheDir,
-		CacheCleared:    bind.NewNotifier[bool](),
+		CacheCleared:    bind.NewNotifier[*model.CacheData](),
 		Results:         bind.NewNotifier[[]*model.CacheData](),
 	}
 
@@ -49,7 +52,7 @@ func (c *Cache) Unmount() {
 	c.CacheCleared.UnbindAll()
 }
 
-func (c *Cache) Download(data *model.CacheData, subtitles bool) bool {
+func (c *Cache) Download(data *model.CacheData, subtitles bool) (string, bool) {
 	return download(c.shared, c.downloadService, data.OriginalQuery, data.Magnet, subtitles)
 }
 
@@ -76,9 +79,28 @@ func (c *Cache) ClearCache() {
 		return
 	}
 
-	c.CacheCleared.Notify(true)
+	c.CacheCleared.Notify(nil)
 
 	c.Results.Notify(nil)
 
 	c.shared.Success("Cache cleared")
+}
+
+func (c *Cache) Delete(idx int) {
+	data := c.Results.Get()
+	if idx < 0 || idx >= len(data) {
+		return
+	}
+
+	item := data[idx]
+	err := c.cacheService.Delete(item)
+	if err != nil {
+		c.shared.Error(err, "Failed to clear cache")
+		return
+	}
+
+	c.CacheCleared.Notify(item)
+
+	data = slices.Delete(data, idx, idx+1)
+	c.Results.Notify(data)
 }

@@ -3,6 +3,7 @@ package viewmodel
 import (
 	"cmp"
 	gslices "slices"
+	"strings"
 	"time"
 
 	"github.com/anacrolix/torrent"
@@ -10,7 +11,7 @@ import (
 	"github.com/quintans/torflix/internal/lib/timer"
 )
 
-func download(shared *Shared, downloadService DownloadService, originalQuery, link string, subtitles bool) bool {
+func download(shared *Shared, downloadService DownloadService, originalQuery, link string, subtitles bool) (string, bool) {
 	t := timer.New(time.Second, func() {
 		shared.Publish(app.Loading{
 			Text: "Downloading torrent metadata",
@@ -26,12 +27,12 @@ func download(shared *Shared, downloadService DownloadService, originalQuery, li
 	files, err := downloadService.DownloadTorrent(link)
 	if err != nil {
 		shared.Error(err, "Failed to download torrent metadata")
-		return false
+		return "", false
 	}
 
 	if len(files) == 0 {
 		shared.Warn("No media files found for magnet link")
-		return false
+		return "", false
 	}
 
 	if len(files) == 1 {
@@ -41,7 +42,7 @@ func download(shared *Shared, downloadService DownloadService, originalQuery, li
 			OriginalQuery:       originalQuery,
 			Subtitles:           subtitles,
 		})
-		return true
+		return folderName(files[0]), true
 	}
 
 	gslices.SortFunc(files, func(i, j *torrent.File) int {
@@ -53,5 +54,15 @@ func download(shared *Shared, downloadService DownloadService, originalQuery, li
 		OriginalQuery: originalQuery,
 		Subtitles:     subtitles,
 	})
-	return true
+	// assuming that the top folder is the same for every file
+	return folderName(files[0]), true
+}
+
+func folderName(file *torrent.File) string {
+	path := file.Path()
+	before, _, found := strings.Cut(path, "/")
+	if found {
+		return before
+	}
+	return path
 }
