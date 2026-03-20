@@ -7,6 +7,7 @@ import (
 	"fyne.io/fyne/v2/canvas"
 	"fyne.io/fyne/v2/container"
 	"fyne.io/fyne/v2/layout"
+	"fyne.io/fyne/v2/theme"
 	"fyne.io/fyne/v2/widget"
 	"github.com/quintans/torflix/internal/components"
 	"github.com/quintans/torflix/internal/model"
@@ -40,7 +41,7 @@ func buildCache(vm *viewmodel.App) fyne.CanvasObject {
 		},
 		func() fyne.CanvasObject {
 			item := components.NewMagnetListItem()
-			delete := widget.NewButton("Delete", nil)
+			delete := widget.NewButtonWithIcon("", theme.DeleteIcon(), nil)
 			delete.Importance = widget.DangerImportance
 			hb := container.NewBorder(nil, nil, nil, delete, item)
 			return hb
