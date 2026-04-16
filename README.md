@@ -11,7 +11,7 @@ Features:
 
 ## Build
 
-get the API key from [Open Subtitles API consumers](https://www.opensubtitles.com/en/consumers) and use it in the build command. 
+If you want to be able to download external subtitles, get the API key from [Open Subtitles API consumers](https://www.opensubtitles.com/en/consumers) and use it in the build command. 
 
 example using as an environment variable (`OS_API_KEY`):
 

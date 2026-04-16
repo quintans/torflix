@@ -28,6 +28,10 @@ const (
 	BaseURL = "https://api.opensubtitles.com/api/v1"
 )
 
+func IsAvailable() bool {
+	return apiKey != ""
+}
+
 type LoginResponse struct {
 	Token string `json:"token"`
 }

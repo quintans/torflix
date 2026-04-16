@@ -10,6 +10,7 @@ import (
 	"fyne.io/fyne/v2/theme"
 	"fyne.io/fyne/v2/widget"
 	"github.com/quintans/torflix/internal/components"
+	"github.com/quintans/torflix/internal/gateways/opensubtitles"
 	"github.com/quintans/torflix/internal/viewmodel"
 )
 
@@ -30,21 +31,23 @@ func App(vm *viewmodel.App) (fyne.CanvasObject, func(bool)) {
 	}
 	appAddSubtitlesSection(settings, vm)
 
-	selectedTab := vm.SelectedTab
-	enableTabs := func(u, p string) {
-		if u != "" && p != "" {
-			appEnableAllTabs(tabs, selectedTab)
-			return
+	if opensubtitles.IsAvailable() {
+		selectedTab := vm.SelectedTab
+		enableTabs := func(u, p string) {
+			if u != "" && p != "" {
+				appEnableAllTabs(tabs, selectedTab)
+				return
+			}
+			appDisableAllTabsButSettings(tabs)
 		}
-		appDisableAllTabsButSettings(tabs)
-	}
 
-	vm.OSUsername.Bind(func(s string) {
-		enableTabs(s, vm.OSPassword.Get())
-	})
-	vm.OSPassword.Bind(func(s string) {
-		enableTabs(vm.OSUsername.Get(), s)
-	})
+		vm.OSUsername.Bind(func(s string) {
+			enableTabs(s, vm.OSPassword.Get())
+		})
+		vm.OSPassword.Bind(func(s string) {
+			enableTabs(vm.OSUsername.Get(), s)
+		})
+	}
 
 	return tabs, func(bool) {
 		vm.Unmount()
@@ -54,6 +57,15 @@ func App(vm *viewmodel.App) (fyne.CanvasObject, func(bool)) {
 func appAddSubtitlesSection(sections *fyne.Container, vm *viewmodel.App) {
 	sections.Add(widget.NewLabel("OpenSubtitles.com"))
 	sections.Add(canvas.NewLine(color.Gray{128}))
+	if !opensubtitles.IsAvailable() {
+		label := widget.NewLabel(
+			`Api Key was not provided at build time.
+To use OpenSubtitles.com integration, please provide your API key as an environment variable named OS_API_KEY or set it at build time using -ldflags="-X github.com/quintans/torflix/internal/gateways/opensubtitles.apiKey=your_api_key"`,
+		)
+		label.Wrapping = fyne.TextWrapWord
+		sections.Add(label)
+		return
+	}
 
 	usernameEntry := widget.NewEntry()
 	usernameEntry.SetText(vm.OSUsername.Get())

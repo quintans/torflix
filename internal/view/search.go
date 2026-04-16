@@ -7,6 +7,7 @@ import (
 	"fyne.io/fyne/v2/container"
 	"fyne.io/fyne/v2/widget"
 	"github.com/quintans/torflix/internal/components"
+	"github.com/quintans/torflix/internal/gateways/opensubtitles"
 	"github.com/quintans/torflix/internal/model"
 	"github.com/quintans/torflix/internal/viewmodel"
 )
@@ -72,9 +73,13 @@ func buildSearch(vm *viewmodel.App) fyne.CanvasObject {
 		}
 	})
 
-	subtitles := widget.NewCheck("Download Subtitles", nil)
-	subtitles.SetChecked(vm.Search.DownloadSubtitles.Get())
-	subtitles.OnChanged = vm.Search.DownloadSubtitles.Set
+	objects := []fyne.CanvasObject{mediaName, pillContainer}
+	if opensubtitles.IsAvailable() {
+		subtitles := widget.NewCheck("Download Subtitles", nil)
+		subtitles.SetChecked(vm.Search.DownloadSubtitles.Get())
+		subtitles.OnChanged = vm.Search.DownloadSubtitles.Set
+		objects = append(objects, subtitles)
+	}
 
 	data := vm.Search.Results
 	result := widget.NewList(
@@ -160,7 +165,7 @@ func buildSearch(vm *viewmodel.App) fyne.CanvasObject {
 
 	})
 
-	options := container.NewVBox(mediaName, pillContainer, subtitles)
+	options := container.NewVBox(objects...)
 
 	return container.NewBorder(
 		container.NewBorder(nil, options, nil, searchBtn, query),
