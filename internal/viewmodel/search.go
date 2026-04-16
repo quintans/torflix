@@ -12,6 +12,7 @@ import (
 
 	"github.com/quintans/faults"
 	"github.com/quintans/torflix/internal/app"
+	"github.com/quintans/torflix/internal/gateways/opensubtitles"
 	"github.com/quintans/torflix/internal/lib/bind"
 	"github.com/quintans/torflix/internal/lib/magnet"
 	"github.com/quintans/torflix/internal/lib/timer"
@@ -96,7 +97,11 @@ func (s *Search) mount() {
 		return
 	}
 
-	s.DownloadSubtitles = bind.New[bool](data.Model.Subtitles())
+	var subtitles bool
+	if opensubtitles.IsAvailable() {
+		subtitles = data.Model.Subtitles()
+	}
+	s.DownloadSubtitles = bind.New[bool](subtitles)
 	s.DownloadSubtitles.Listen(func(subtitles bool) {
 		data.Model.SetSubtitles(subtitles)
 		err := s.searchService.SaveSearch(data.Model)
