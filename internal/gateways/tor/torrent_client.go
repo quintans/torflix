@@ -1,7 +1,6 @@
 package tor
 
 import (
-	"context"
 	"fmt"
 	"io"
 	"log/slog"
@@ -17,6 +16,7 @@ import (
 	"github.com/quintans/faults"
 	"github.com/quintans/torflix/internal/app"
 	"github.com/quintans/torflix/internal/lib/files"
+	"github.com/quintans/torflix/internal/lib/gracefull"
 	"github.com/quintans/torflix/internal/lib/magnet"
 	"golang.org/x/time/rate"
 )
@@ -45,6 +45,7 @@ type TorrentClient struct {
 	piecesComplete int
 
 	torrentConfig *torrent.ClientConfig
+	shutdown      *gracefull.Gracefull
 }
 
 // ClientConfig specifies the behaviour of a client.
@@ -89,6 +90,7 @@ func NewTorrentClient(cfg ClientConfig, torrentDir, mediaDir string, resource st
 	client := &TorrentClient{
 		TorrentDir: mediaDir,
 		Config:     cfg,
+		shutdown:   gracefull.New(),
 	}
 
 	torrentConfig := torrent.NewDefaultClientConfig()
@@ -200,10 +202,15 @@ func (c *TorrentClient) Play(file *torrent.File) {
 
 	c.piecesComplete = 0
 	done := make(chan struct{})
+	c.shutdown.Enter()
 	go func() {
+		defer c.shutdown.Leave()
 		defer close(done)
 		for v := range file.Pieces() {
-			err := v.VerifyDataContext(context.Background())
+			if c.shutdown.IsShuttingDown() {
+				return
+			}
+			err := v.VerifyData()
 			if err != nil {
 				slog.Error("Failed to verify piece data on startup", "error", err)
 				return
@@ -239,10 +246,12 @@ func (c *TorrentClient) PauseTorrent() {
 
 // Close cleans up the connections.
 func (c *TorrentClient) Close() {
+	c.shutdown.Shutdown()
 	errs := c.Client.Close()
 	for _, err := range errs {
 		slog.Error("Failed closing torrent client.", "error", err)
 	}
+	c.shutdown = gracefull.New()
 }
 
 // Render outputs the command line interface for the client.

@@ -129,6 +129,11 @@ func (c *Download) ServeFile(
 
 	c.client.Play(file)
 
+	// it is nil if the back button was clicked
+	if c.client == nil {
+		return nil
+	}
+
 	mux := http.NewServeMux()
 	mux.HandleFunc("/"+mediaName, c.client.GetFile(mediaName))
 
