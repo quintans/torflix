@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/quintans/faults"
 	"github.com/quintans/torflix/internal/lib/files"
@@ -112,7 +113,7 @@ func (a *Cache) Delete(data *model.CacheData) error {
 	if err != nil {
 		return faults.Errorf("Failed to delete cache file %s: %w", fullpath, err)
 	}
-	torrentPath := filepath.Join(a.torrentsDir, data.Hash+".torrent")
+	torrentPath := filepath.Join(a.torrentsDir, strings.ToUpper(data.Hash)+".torrent")
 	err = os.Remove(torrentPath)
 	if err != nil {
 		return faults.Errorf("Failed to delete torrent file %s: %w", torrentPath, err)

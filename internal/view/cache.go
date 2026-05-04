@@ -1,7 +1,9 @@
 package view
 
 import (
+	"cmp"
 	"image/color"
+	"slices"
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/canvas"
@@ -70,6 +72,9 @@ func buildCache(vm *viewmodel.App) fyne.CanvasObject {
 	}
 
 	vm.Cache.Results.Bind(func(results []*model.CacheData) {
+		slices.SortFunc(results, func(a, b *model.CacheData) int {
+			return cmp.Compare(a.Name, b.Name)
+		})
 		data = results
 		result.Show()
 		result.UnselectAll()

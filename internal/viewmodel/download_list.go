@@ -28,8 +28,9 @@ func NewDownloadList(shared *Shared, service DownloadService, params app.Downloa
 	}
 
 	fileItems := slices.Map(params.Files, func(it *torrent.File) *FileItem {
+		p99 := float64(it.Length()) * 0.99
 		return &FileItem{
-			Selected: it.BytesCompleted() >= it.Length(),
+			Selected: it.BytesCompleted() > int64(p99),
 			File:     it,
 		}
 	})
