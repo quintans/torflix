@@ -91,10 +91,10 @@ func (d *Download) Serve(onStats func(stats app.Stats)) bool {
 			})
 		})
 
-		defer func() {
+		stop := func() {
 			t.Stop()
 			d.shared.Publish(app.Loading{}) // hide spinner
-		}()
+		}
 
 		subtitlesDir, downloaded, err := d.service.DownloadSubtitles(
 			d.params.FileToPlay,
@@ -103,6 +103,7 @@ func (d *Download) Serve(onStats func(stats app.Stats)) bool {
 			qc.season,
 			qc.episode,
 		)
+		stop()
 		if err != nil {
 			d.shared.Error(err, "Failed to download subtitles")
 			return false

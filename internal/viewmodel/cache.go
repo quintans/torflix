@@ -58,7 +58,7 @@ func (c *Cache) Download(data *model.CacheData, subtitles bool) (string, bool) {
 
 func (c *Cache) Add(originalSearchQuery string, data *model.CacheData) {
 	for _, d := range c.Results.Get() {
-		if d.Magnet == data.Magnet {
+		if d.Hash == data.Hash {
 			return
 		}
 	}

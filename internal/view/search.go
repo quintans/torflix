@@ -91,13 +91,21 @@ func buildSearch(vm *viewmodel.App) fyne.CanvasObject {
 		},
 		func(i widget.ListItemID, o fyne.CanvasObject) {
 			r := data[i]
+
+			var cached bool
+			for _, c := range vm.Cache.Results.Get() {
+				if c.Hash == r.Hash {
+					cached = true
+					break
+				}
+			}
 			o.(*components.MagnetListItem).SetData(&components.MagnetItem{
 				Provider: r.Provider,
 				Name:     r.Name,
 				Size:     r.Size,
 				Seeds:    strconv.Itoa(r.Seeds),
 				Magnet:   r.Magnet,
-				Cached:   r.Cached,
+				Cached:   cached,
 				Quality:  r.QualityName,
 			})
 		},
