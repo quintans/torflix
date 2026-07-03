@@ -245,16 +245,19 @@ func main() {
 	factory := func(to any) navigation.ViewFactory {
 		switch t := to.(type) {
 		case gapp.AppParams:
+			vm := viewmodel.NewApp(
+				shared,
+				appSvc,
+				searchSvc,
+				cacheSvc,
+				downloadSvc,
+				cacheDir,
+				t,
+			)
+			bus.Register(b, vm.Cache.OnCache)
+
 			return &View[*viewmodel.App]{
-				VM: viewmodel.NewApp(
-					shared,
-					appSvc,
-					searchSvc,
-					cacheSvc,
-					downloadSvc,
-					cacheDir,
-					t,
-				),
+				VM:          vm,
 				Constructor: view.App,
 			}
 		case gapp.DownloadListParams:

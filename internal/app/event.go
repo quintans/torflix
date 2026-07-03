@@ -1,6 +1,9 @@
 package app
 
-import "github.com/quintans/torflix/internal/lib/text"
+import (
+	"github.com/quintans/torflix/internal/lib/text"
+	"github.com/quintans/torflix/internal/model"
+)
 
 type Loading struct {
 	// If set, it will update the loading text.
@@ -11,6 +14,14 @@ type Loading struct {
 
 func (Loading) Kind() string {
 	return "loading"
+}
+
+type Cache struct {
+	Data *model.CacheData
+}
+
+func (Cache) Kind() string {
+	return "cache"
 }
 
 type NotifyType int

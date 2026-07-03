@@ -121,17 +121,17 @@ func buildSearch(vm *viewmodel.App) fyne.CanvasObject {
 				fyne.DoAndWait(result.Show)
 			}
 			d.Cached = true
-			vm.Cache.Add(vm.Search.OriginalQuery, &model.CacheData{
-				FolderName: folderName,
-				Provider:   d.Provider,
-				Name:       d.Name,
-				Magnet:     d.Magnet,
-				Size:       d.Size,
-				Seeds:      strconv.Itoa(d.Seeds),
-				Quality:    d.QualityName,
-				Hash:       d.Hash,
+			vm.Cache.Add(&model.CacheData{
+				OriginalQuery: vm.Search.OriginalQuery,
+				FolderName:    folderName,
+				Provider:      d.Provider,
+				Name:          d.Name,
+				Magnet:        d.Magnet,
+				Size:          d.Size,
+				Seeds:         strconv.Itoa(d.Seeds),
+				Quality:       d.QualityName,
+				Hash:          d.Hash,
 			})
-
 		}()
 	}
 

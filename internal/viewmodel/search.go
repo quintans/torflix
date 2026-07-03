@@ -140,12 +140,12 @@ func (s *Search) Search(onResults func([]*SearchData)) bool {
 	query := strings.TrimSpace(s.Query.Get())
 	mediaName := strings.TrimSpace(s.MediaName.Get())
 
-	model := model.NewSearch()
-	model.SetSubtitles(s.DownloadSubtitles.Get())
-	model.SetQuery(query)
-	model.SetMediaName(mediaName)
+	mod := model.NewSearch()
+	mod.SetSubtitles(s.DownloadSubtitles.Get())
+	mod.SetQuery(query)
+	mod.SetMediaName(mediaName)
 
-	err := model.SetQuery(query)
+	err := mod.SetQuery(query)
 	if err != nil {
 		s.shared.Error(err, "Failed to set query")
 		return false
@@ -159,23 +159,42 @@ func (s *Search) Search(onResults func([]*SearchData)) bool {
 		return false
 	}
 
-	model.SetSelectedProviders(selectedProviders)
+	mod.SetSelectedProviders(selectedProviders)
 
-	err = s.searchService.SaveSearch(model)
+	err = s.searchService.SaveSearch(mod)
 	if err != nil {
 		s.shared.Error(err, "Failed to save search")
 		return false
 	}
 
 	if isTorrent {
-		mn := s.MediaName.Get()
-		if mn == "" {
+		if mediaName == "" {
 			s.shared.Warn("Media name is required when providing a link")
 			return false
 		}
 
-		s.OriginalQuery = mn
-		_, ok := download(s.shared, s.downloadService, s.OriginalQuery, query, s.DownloadSubtitles.Get())
+		s.OriginalQuery = mediaName
+		folderName, ok := download(s.shared, s.downloadService, s.OriginalQuery, query, s.DownloadSubtitles.Get())
+
+		mag, err := magnet.Parse(query)
+		if err != nil {
+			s.shared.Error(err, "Failed to parse magnet link")
+			return false
+		}
+		s.shared.Publish(app.Cache{
+			Data: &model.CacheData{
+				OriginalQuery: mediaName,
+				FolderName:    folderName,
+				Provider:      "N/A",
+				Name:          folderName,
+				Magnet:        query,
+				Size:          "N/A",
+				Seeds:         "N/A",
+				Quality:       "N/A",
+				Hash:          mag.InfoHash,
+			},
+		})
+
 		return ok
 	}
 

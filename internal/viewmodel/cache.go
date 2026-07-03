@@ -3,6 +3,7 @@ package viewmodel
 import (
 	"slices"
 
+	"github.com/quintans/torflix/internal/app"
 	"github.com/quintans/torflix/internal/lib/bind"
 	"github.com/quintans/torflix/internal/model"
 )
@@ -56,14 +57,19 @@ func (c *Cache) Download(data *model.CacheData, subtitles bool) (string, bool) {
 	return download(c.shared, c.downloadService, data.OriginalQuery, data.Magnet, subtitles)
 }
 
-func (c *Cache) Add(originalSearchQuery string, data *model.CacheData) {
+func (c *Cache) Add(data *model.CacheData) {
+	c.OnCache(app.Cache{Data: data})
+}
+
+func (c *Cache) OnCache(msg app.Cache) {
+	data := msg.Data
+
 	for _, d := range c.Results.Get() {
 		if d.Hash == data.Hash {
 			return
 		}
 	}
 
-	data.OriginalQuery = originalSearchQuery
 	if err := c.cacheService.SaveCache(data); err != nil {
 		c.shared.Error(err, "Failed to save cache")
 		return
