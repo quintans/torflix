@@ -8,6 +8,7 @@ import (
 	"fyne.io/fyne/v2/widget"
 	"github.com/quintans/torflix/internal/components"
 	"github.com/quintans/torflix/internal/gateways/opensubtitles"
+	"github.com/quintans/torflix/internal/lib/humanize"
 	"github.com/quintans/torflix/internal/model"
 	"github.com/quintans/torflix/internal/viewmodel"
 )
@@ -116,18 +117,18 @@ func buildSearch(vm *viewmodel.App) fyne.CanvasObject {
 
 		go func() {
 			d := data[id]
-			folderName, ok := vm.Search.Download(d.Magnet)
+			response, ok := vm.Search.Download(d.Magnet)
 			if !ok {
 				fyne.DoAndWait(result.Show)
 			}
 			d.Cached = true
 			vm.Cache.Add(&model.CacheData{
 				OriginalQuery: vm.Search.OriginalQuery,
-				FolderName:    folderName,
+				FolderName:    response.Folder,
 				Provider:      d.Provider,
-				Name:          d.Name,
+				Name:          response.Name,
 				Magnet:        d.Magnet,
-				Size:          d.Size,
+				Size:          humanize.Bytes(uint64(response.Size), 1),
 				Seeds:         strconv.Itoa(d.Seeds),
 				Quality:       d.QualityName,
 				Hash:          d.Hash,

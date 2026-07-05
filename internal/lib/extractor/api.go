@@ -9,8 +9,9 @@ import (
 	"net/url"
 	"text/template"
 
-	"github.com/dustin/go-humanize"
+	gohumanize "github.com/dustin/go-humanize"
 	"github.com/quintans/faults"
+	"github.com/quintans/torflix/internal/lib/humanize"
 	"github.com/tidwall/gjson"
 )
 
@@ -123,13 +124,13 @@ func transform(endpoint apiConfig, data string) ([]Result, error) {
 
 		switch {
 		case v.Size > 0:
-			v.HSize = humanize.Bytes(v.Size)
+			v.HSize = humanize.Bytes(v.Size, 1)
 		case v.SSize != "":
-			s, err := humanize.ParseBytes(v.SSize)
+			s, err := gohumanize.ParseBytes(v.SSize)
 			if err != nil {
 				return nil, faults.Errorf("failed to parse size: %w", err)
 			}
-			v.HSize = humanize.Bytes(s)
+			v.HSize = humanize.Bytes(s, 1)
 		}
 
 		if v.Magnet == "" && v.Hash != "" {

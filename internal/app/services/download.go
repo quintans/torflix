@@ -21,6 +21,7 @@ import (
 	"github.com/quintans/torflix/internal/lib/fails"
 	"github.com/quintans/torflix/internal/lib/https"
 	"github.com/quintans/torflix/internal/lib/retry"
+	"github.com/quintans/torflix/internal/viewmodel"
 )
 
 const localhost = "http://localhost:%d/%s"
@@ -71,7 +72,7 @@ func (c *Download) Close() {
 	c.client = nil
 }
 
-func (c *Download) DownloadTorrent(link string) ([]*torrent.File, error) {
+func (c *Download) DownloadTorrent(link string) (viewmodel.DownloadTorrentResponse, error) {
 	if c.client != nil {
 		c.Close()
 	}
@@ -79,10 +80,33 @@ func (c *Download) DownloadTorrent(link string) ([]*torrent.File, error) {
 	var err error
 	c.client, err = c.torCliFact(link)
 	if err != nil {
-		return nil, faults.Errorf("creating torrent client: %w", err)
+		return viewmodel.DownloadTorrentResponse{}, faults.Errorf("creating torrent client: %w", err)
 	}
 
-	return c.client.GetFilteredFiles(), nil
+	files := c.client.GetFilteredFiles()
+	if len(files) == 0 {
+		return viewmodel.DownloadTorrentResponse{}, faults.New("no media files found for magnet link")
+	}
+	var size int64
+	for _, f := range files {
+		size += f.Length()
+	}
+	return viewmodel.DownloadTorrentResponse{
+		Name:   c.client.GetName(),
+		Files:  files,
+		Folder: folderName(files[0]),
+		Size:   size,
+	}, nil
+}
+
+// folderName retrieves the folder name assuming that the top folder is the same for every file
+func folderName(file *torrent.File) string {
+	path := file.Path()
+	before, _, found := strings.Cut(path, "/")
+	if found {
+		return before
+	}
+	return path
 }
 
 func (c *Download) ServeFile(

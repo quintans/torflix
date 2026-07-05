@@ -49,6 +49,7 @@ type TorrentClient interface {
 	GetFile(filename string) func(w http.ResponseWriter, r *http.Request)
 	ReadyForPlayback() bool
 	GetFilteredFiles() []*torrent.File
+	GetName() string
 	Play(file *torrent.File)
 	PauseTorrent()
 }

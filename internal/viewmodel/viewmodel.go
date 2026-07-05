@@ -3,7 +3,6 @@ package viewmodel
 import (
 	"cmp"
 	gslices "slices"
-	"strings"
 	"time"
 
 	"github.com/anacrolix/torrent"
@@ -11,7 +10,7 @@ import (
 	"github.com/quintans/torflix/internal/lib/timer"
 )
 
-func download(shared *Shared, downloadService DownloadService, originalQuery, link string, subtitles bool) (string, bool) {
+func download(shared *Shared, downloadService DownloadService, originalQuery, link string, subtitles bool) (DownloadTorrentResponse, bool) {
 	t := timer.New(time.Second, func() {
 		shared.Publish(app.Loading{
 			Text: "Downloading torrent metadata",
@@ -24,45 +23,35 @@ func download(shared *Shared, downloadService DownloadService, originalQuery, li
 		shared.Publish(app.Loading{}) // hide spinner
 	}()
 
-	files, err := downloadService.DownloadTorrent(link)
+	response, err := downloadService.DownloadTorrent(link)
 	if err != nil {
 		shared.Error(err, "Failed to download torrent metadata")
-		return "", false
+		return DownloadTorrentResponse{}, false
 	}
 
-	if len(files) == 0 {
+	if len(response.Files) == 0 {
 		shared.Warn("No media files found for magnet link")
-		return "", false
+		return DownloadTorrentResponse{}, false
 	}
 
-	if len(files) == 1 {
+	if len(response.Files) == 1 {
 		shared.Navigate.To(app.DownloadParams{
-			FileToPlay:          files[0],
+			FileToPlay:          response.Files[0],
 			PauseTorrentOnClose: false,
 			OriginalQuery:       originalQuery,
 			Subtitles:           subtitles,
 		})
-		return folderName(files[0]), true
+		return response, true
 	}
 
-	gslices.SortFunc(files, func(i, j *torrent.File) int {
+	gslices.SortFunc(response.Files, func(i, j *torrent.File) int {
 		return cmp.Compare(i.DisplayPath(), j.DisplayPath())
 	})
 
 	shared.Navigate.To(app.DownloadListParams{
-		Files:         files,
+		Files:         response.Files,
 		OriginalQuery: originalQuery,
 		Subtitles:     subtitles,
 	})
-	// assuming that the top folder is the same for every file
-	return folderName(files[0]), true
-}
-
-func folderName(file *torrent.File) string {
-	path := file.Path()
-	before, _, found := strings.Cut(path, "/")
-	if found {
-		return before
-	}
-	return path
+	return response, true
 }

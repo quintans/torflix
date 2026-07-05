@@ -9,9 +9,9 @@ import (
 	"fyne.io/fyne/v2/container"
 	"fyne.io/fyne/v2/layout"
 	"fyne.io/fyne/v2/widget"
-	"github.com/dustin/go-humanize"
 	"github.com/quintans/torflix/internal/app"
 	"github.com/quintans/torflix/internal/components"
+	"github.com/quintans/torflix/internal/lib/humanize"
 	"github.com/quintans/torflix/internal/viewmodel"
 )
 
@@ -80,17 +80,17 @@ func Download(vm *viewmodel.Download) (fyne.CanvasObject, func(bool)) {
 
 			if stats.Size > 0 {
 				percentage := float64(stats.Complete) / float64(stats.Size) * 100
-				complete := humanize.Bytes(uint64(stats.Complete))
-				size := humanize.Bytes(uint64(stats.Size))
+				complete := humanize.Bytes(uint64(stats.Complete), 1)
+				size := humanize.Bytes(uint64(stats.Size), 1)
 				progress.SetText(fmt.Sprintf("%s / %s  %.2f%%", complete, size, percentage))
 			}
 
 			if stats.Done {
 				downloadSpeed.SetText("Download complete")
 			} else {
-				downloadSpeed.SetText(humanize.Bytes(uint64(stats.DownloadSpeed)) + "/s")
+				downloadSpeed.SetText(humanize.Bytes(uint64(stats.DownloadSpeed), 1) + "/s")
 			}
-			uploadSpeed.SetText(humanize.Bytes(uint64(stats.UploadSpeed)) + "/s")
+			uploadSpeed.SetText(humanize.Bytes(uint64(stats.UploadSpeed), 1) + "/s")
 			seeders.SetText(fmt.Sprintf("%d", stats.Seeders))
 
 			tracker.SetPieces(stats.Pieces)

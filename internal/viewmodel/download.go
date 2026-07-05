@@ -14,7 +14,7 @@ import (
 )
 
 type DownloadService interface {
-	DownloadTorrent(magnetLink string) ([]*torrent.File, error)
+	DownloadTorrent(magnetLink string) (DownloadTorrentResponse, error)
 	DownloadSubtitles(
 		file *torrent.File,
 		mediaName string,
@@ -32,6 +32,13 @@ type DownloadService interface {
 	Play(ctx context.Context, asyncError app.AsyncError, servingFile, subtitlesDir string, onClose func()) error
 	Pause()
 	Close()
+}
+
+type DownloadTorrentResponse struct {
+	Name   string
+	Files  []*torrent.File
+	Folder string
+	Size   int64
 }
 
 type Download struct {
@@ -225,7 +232,7 @@ func preClean(name string) string {
 	}
 
 	patternsToRemove := []string{
-		`(?i)(720p|1080p|2160p|4k)`,       // Resolutions
+		`(?i)(720p|1080p|1440p|2160p|4k)`, // Resolutions
 		`(?i)(x264|x265|h264|h265|H.264)`, // Codecs
 	}
 

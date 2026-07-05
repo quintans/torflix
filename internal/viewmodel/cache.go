@@ -53,7 +53,7 @@ func (c *Cache) Unmount() {
 	c.CacheCleared.UnbindAll()
 }
 
-func (c *Cache) Download(data *model.CacheData, subtitles bool) (string, bool) {
+func (c *Cache) Download(data *model.CacheData, subtitles bool) (DownloadTorrentResponse, bool) {
 	return download(c.shared, c.downloadService, data.OriginalQuery, data.Magnet, subtitles)
 }
 

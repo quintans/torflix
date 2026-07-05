@@ -163,4 +163,4 @@ func (m *Settings) Hydrate(
 	m.OpenSubtitles = OpenSubtitles
 }
 
-var qualities = []string{"720p", "1080p", "2160p"}
+var qualities = []string{"720p", "1080p", "1440p", "2160p"}

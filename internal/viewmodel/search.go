@@ -14,6 +14,7 @@ import (
 	"github.com/quintans/torflix/internal/app"
 	"github.com/quintans/torflix/internal/gateways/opensubtitles"
 	"github.com/quintans/torflix/internal/lib/bind"
+	"github.com/quintans/torflix/internal/lib/humanize"
 	"github.com/quintans/torflix/internal/lib/magnet"
 	"github.com/quintans/torflix/internal/lib/timer"
 	"github.com/quintans/torflix/internal/model"
@@ -174,7 +175,7 @@ func (s *Search) Search(onResults func([]*SearchData)) bool {
 		}
 
 		s.OriginalQuery = mediaName
-		folderName, ok := download(s.shared, s.downloadService, s.OriginalQuery, query, s.DownloadSubtitles.Get())
+		response, ok := download(s.shared, s.downloadService, s.OriginalQuery, query, s.DownloadSubtitles.Get())
 
 		mag, err := magnet.Parse(query)
 		if err != nil {
@@ -184,11 +185,11 @@ func (s *Search) Search(onResults func([]*SearchData)) bool {
 		s.shared.Publish(app.Cache{
 			Data: &model.CacheData{
 				OriginalQuery: mediaName,
-				FolderName:    folderName,
-				Provider:      "N/A",
-				Name:          folderName,
+				FolderName:    response.Folder,
+				Provider:      "torrent",
+				Name:          response.Name,
 				Magnet:        query,
-				Size:          "N/A",
+				Size:          humanize.Bytes(uint64(response.Size), 1),
 				Seeds:         "N/A",
 				Quality:       "N/A",
 				Hash:          mag.InfoHash,
@@ -261,7 +262,7 @@ func (s *Search) Search(onResults func([]*SearchData)) bool {
 	return true
 }
 
-func (s *Search) Download(magnetLink string) (string, bool) {
+func (s *Search) Download(magnetLink string) (DownloadTorrentResponse, bool) {
 	return download(s.shared, s.downloadService, s.OriginalQuery, magnetLink, s.DownloadSubtitles.Get())
 }
 

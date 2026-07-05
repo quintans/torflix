@@ -5,7 +5,7 @@ import (
 	"fyne.io/fyne/v2/container"
 	"fyne.io/fyne/v2/layout"
 	"fyne.io/fyne/v2/widget"
-	"github.com/dustin/go-humanize"
+	"github.com/quintans/torflix/internal/lib/humanize"
 	"github.com/quintans/torflix/internal/viewmodel"
 )
 
@@ -27,7 +27,7 @@ func DownloadList(vm *viewmodel.DownloadList) (fyne.CanvasObject, func(bool)) {
 			name := it.Objects[0].(*widget.Label)
 			name.SetText(fileItems[i].File.DisplayPath())
 			size := it.Objects[1].(*widget.Label)
-			size.SetText(humanize.Bytes(uint64(fileItems[i].File.Length())))
+			size.SetText(humanize.Bytes(uint64(fileItems[i].File.Length()), 1))
 			if fileItems[i].Selected {
 				name.Importance = widget.HighImportance
 				size.Importance = widget.HighImportance

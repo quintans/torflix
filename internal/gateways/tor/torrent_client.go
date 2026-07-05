@@ -346,6 +346,14 @@ func (c TorrentClient) GetFilteredFiles() []*torrent.File {
 	return result
 }
 
+func (c TorrentClient) GetName() string {
+	if c.Torrent == nil || c.Torrent.Info() == nil {
+		return ""
+	}
+
+	return c.Torrent.Info().Name
+}
+
 // ReadyForPlayback checks if the torrent is ready for playback or not.
 // We wait until 0.5% of the torrent to start playing.
 func (c TorrentClient) ReadyForPlayback() bool {
